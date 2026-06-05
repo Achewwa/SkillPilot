@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field
 
 ExtensionType = Literal["skill", "mcp", "plugin", "mixed", "unknown"]
 RiskLevel = Literal["low", "medium", "high"]
+SearchSourceType = Literal["web", "github"]
+SearchStatus = Literal["success", "no_results", "failed", "skipped"]
 DecisionType = Literal[
     "recommend_existing",
     "recommend_with_custom_extension",
@@ -31,10 +33,29 @@ class TypeClassification(BaseModel):
     reason: str
 
 
+class SearchQuery(BaseModel):
+    text: str
+    source_type: SearchSourceType
+    extension_type: ExtensionType
+    purpose: str
+    max_results: int = 5
+
+
+class SearchResult(BaseModel):
+    title: str
+    url: str
+    snippet: str
+    source_type: SearchSourceType
+    query: str
+    status: SearchStatus
+    error_message: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class SearchPlan(BaseModel):
     extension_type: ExtensionType
     sources: list[str]
-    queries: list[str]
+    queries: list[SearchQuery]
 
 
 class Candidate(BaseModel):
@@ -79,6 +100,7 @@ class AgentRunResult(BaseModel):
     requirement: ParsedRequirement
     classification: TypeClassification
     search_plan: SearchPlan
+    search_results: list[SearchResult] = Field(default_factory=list)
     evaluations: list[CandidateEvaluation]
     decision: Decision
     report_path: str

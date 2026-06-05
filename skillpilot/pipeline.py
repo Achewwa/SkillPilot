@@ -14,6 +14,7 @@ from skillpilot.modules.stubs import (
     RequirementParser,
     SourcePlanner,
 )
+from skillpilot.modules.search_tools import SearchExecutor
 
 
 class SkillPilotPipeline:
@@ -22,6 +23,7 @@ class SkillPilotPipeline:
         self.parser = RequirementParser()
         self.classifier = ExtensionTypeClassifier()
         self.planner = SourcePlanner()
+        self.search_executor = SearchExecutor(config.search)
         self.cache = LocalCandidateCache(config.data_dir / "candidate_cache.json")
         self.evaluator = CandidateEvaluator()
         self.decision_gate = DecisionGate()
@@ -32,6 +34,7 @@ class SkillPilotPipeline:
         requirement = self.parser.parse(requirement_text)
         classification = self.classifier.classify(requirement)
         search_plan = self.planner.plan(requirement, classification)
+        search_results = self.search_executor.run(search_plan)
         candidates = self.cache.load()
         evaluations = self.evaluator.evaluate(requirement, classification, candidates)
         decision = self.decision_gate.decide(evaluations)
@@ -54,6 +57,8 @@ class SkillPilotPipeline:
             requirement_text=requirement.raw_text,
             classification_reason=classification.reason,
             decision=decision,
+            search_plan=search_plan,
+            search_results=search_results,
             report_path=report_path,
         )
 
@@ -61,6 +66,7 @@ class SkillPilotPipeline:
             requirement=requirement,
             classification=classification,
             search_plan=search_plan,
+            search_results=search_results,
             evaluations=evaluations,
             decision=decision,
             report_path=str(report_path),

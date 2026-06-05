@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from skillpilot.models import AgentRunResult, Decision, model_to_dict
+from skillpilot.models import AgentRunResult, Decision, SearchPlan, SearchResult, model_to_dict
 
 
 class RecommendationWriter:
@@ -15,6 +15,8 @@ class RecommendationWriter:
         requirement_text: str,
         classification_reason: str,
         decision: Decision,
+        search_plan: SearchPlan | None = None,
+        search_results: list[SearchResult] | None = None,
         report_path: Path | None = None,
     ) -> Path:
         self.outputs_dir.mkdir(parents=True, exist_ok=True)
@@ -30,9 +32,48 @@ class RecommendationWriter:
             "",
             classification_reason,
             "",
-            "## 候选资源与评分",
+            "## 搜索计划",
             "",
         ]
+
+        if search_plan:
+            lines.append(f"- 目标类型：{search_plan.extension_type}")
+            sources = ", ".join(search_plan.sources) if search_plan.sources else "暂无"
+            lines.append(f"- 搜索源：{sources}")
+            for index, query in enumerate(search_plan.queries, start=1):
+                lines.append(
+                    f"{index}. [{query.source_type}] {query.text}（目的：{query.purpose}）"
+                )
+        else:
+            lines.append("暂无搜索计划。")
+
+        lines.extend(
+            [
+                "",
+                "## 搜索结果",
+                "",
+            ]
+        )
+
+        if search_results:
+            for index, result in enumerate(search_results, start=1):
+                status_detail = result.error_message or result.snippet or "无额外说明"
+                title = result.title or result.query
+                lines.append(f"{index}. [{result.source_type}/{result.status}] {title}")
+                if result.url:
+                    lines.append(f"   - URL：{result.url}")
+                lines.append(f"   - 查询：{result.query}")
+                lines.append(f"   - 说明：{status_detail}")
+        else:
+            lines.append("暂无搜索结果。")
+
+        lines.extend(
+            [
+                "",
+                "## 候选资源与评分",
+                "",
+            ]
+        )
 
         if decision.selected_candidates:
             for index, evaluation in enumerate(decision.selected_candidates, start=1):

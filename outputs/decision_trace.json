@@ -1,10 +1,10 @@
 {
   "requirement": {
-    "raw_text": "我想要一个 Skill，根据课程课件给书面作业题生成知识点提示，但不能直接给答案。",
-    "task_domain": "education",
+    "raw_text": "阅读pdf的插件",
+    "task_domain": "document_processing",
     "desired_capabilities": [
-      "knowledge_hint",
-      "answer_guardrail"
+      "pdf_reading",
+      "document_parsing"
     ],
     "requires_codebase_access": false,
     "requires_command_execution": false,
@@ -12,21 +12,109 @@
     "risk_tolerance": "medium"
   },
   "classification": {
-    "recommended_type": "skill",
-    "confidence": 0.82,
-    "reason": "需求主要是规范 Claude 如何完成任务，适合先以 Skill 表达。"
+    "recommended_type": "plugin",
+    "confidence": 0.74,
+    "reason": "用户明确提到插件，优先规划 Claude Code Plugin 方向，同时保留后续安全评估。"
   },
   "search_plan": {
-    "extension_type": "skill",
+    "extension_type": "plugin",
     "sources": [
-      "local_skill_cache",
-      "anthropic_skill_docs",
-      "github_skill_examples"
+      "web_search",
+      "github_repository_search"
     ],
     "queries": [
-      "我想要一个 Skill，根据课程课件给书面作业题生成知识点提示，但不能直接给答案。"
+      {
+        "text": "PDF reading document parsing Claude Code plugin GitHub",
+        "source_type": "github",
+        "extension_type": "plugin",
+        "purpose": "Find Claude Code plugin repositories.",
+        "max_results": 5
+      },
+      {
+        "text": "PDF reading document parsing \"Claude Code plugin\"",
+        "source_type": "web",
+        "extension_type": "plugin",
+        "purpose": "Find plugin documentation or examples.",
+        "max_results": 5
+      },
+      {
+        "text": "PDF reading document parsing \"claude-code\" plugin",
+        "source_type": "github",
+        "extension_type": "plugin",
+        "purpose": "Find repositories using Claude Code plugin naming.",
+        "max_results": 5
+      },
+      {
+        "text": "阅读pdf的插件 Claude Code plugin",
+        "source_type": "web",
+        "extension_type": "plugin",
+        "purpose": "Search the original requirement against plugin terms.",
+        "max_results": 5
+      }
     ]
   },
+  "search_results": [
+    {
+      "title": "",
+      "url": "",
+      "snippet": "GitHub search returned no repositories.",
+      "source_type": "github",
+      "query": "PDF reading document parsing Claude Code plugin GitHub",
+      "status": "no_results",
+      "error_message": null,
+      "metadata": {}
+    },
+    {
+      "title": "",
+      "url": "",
+      "snippet": "Web search returned no visible results.",
+      "source_type": "web",
+      "query": "PDF reading document parsing \"Claude Code plugin\"",
+      "status": "no_results",
+      "error_message": null,
+      "metadata": {}
+    },
+    {
+      "title": "",
+      "url": "",
+      "snippet": "GitHub search returned no repositories.",
+      "source_type": "github",
+      "query": "PDF reading document parsing \"claude-code\" plugin",
+      "status": "no_results",
+      "error_message": null,
+      "metadata": {}
+    },
+    {
+      "title": "ZSHYC/pdf-master: 全能型 PDF 处理 Claude Code 插件 - GitHub",
+      "url": "https://github.com/ZSHYC/pdf-master",
+      "snippet": "PDF -Master 🚀 全能型 PDF 处理 Claude Code 插件 一个插件，覆盖所有 PDF 场景 — 解析、编辑、转换、AI 增强、OCR、安全 🌐 官网 • 功能特性 • 快速开始 • 使用指南 • AI 配置 • 开发",
+      "source_type": "web",
+      "query": "阅读pdf的插件 Claude Code plugin",
+      "status": "success",
+      "error_message": null,
+      "metadata": {}
+    },
+    {
+      "title": "PDF-Master - 全能型 PDF 处理 Claude Code 插件",
+      "url": "https://zshyc.github.io/pdf-master/",
+      "snippet": "全能型 PDF 处理 Claude Code 插件 一个插件，覆盖所有 PDF 场景 解析 · 编辑 · 转换 · AI 增强 · OCR · 安全",
+      "source_type": "web",
+      "query": "阅读pdf的插件 Claude Code plugin",
+      "status": "success",
+      "error_message": null,
+      "metadata": {}
+    },
+    {
+      "title": "一行命令，让你的 Code Agent 会读PDF - 知乎",
+      "url": "https://zhuanlan.zhihu.com/p/2022009123592480470",
+      "snippet": "Claude Code、Cursor、Kimi Code、Codex、Cline——现在大家写代码越来越依赖 Code Agent。但大模型有一个短板： 读不了 PDF 。你丢给它一个 PDF 文件路径，它只会告诉你&#34;这是个二进制文件，我读不了&#34;。论…",
+      "source_type": "web",
+      "query": "阅读pdf的插件 Claude Code plugin",
+      "status": "success",
+      "error_message": null,
+      "metadata": {}
+    }
+  ],
   "evaluations": [
     {
       "candidate": {
@@ -50,46 +138,11 @@
           "Demo cache entry describes review workflow and output sections."
         ]
       },
-      "match_score": 0.2,
+      "match_score": 0.0,
       "matched_capabilities": [],
       "missing_capabilities": [
-        "answer_guardrail",
-        "knowledge_hint"
-      ],
-      "trust_level": "medium",
-      "risk_level": "low",
-      "risk_reasons": [
-        "候选主要是说明型能力，当前占位评估未发现高风险权限。"
-      ],
-      "reason": "占位评分：基于能力关键词重合、扩展类型一致性和权限风险生成。"
-    },
-    {
-      "candidate": {
-        "name": "python-test-helper-skill",
-        "extension_type": "skill",
-        "source_url": "cache://skills/python-tests",
-        "description": "A cached Skill-style candidate for generating Python test plans and failure analysis prompts.",
-        "capabilities": [
-          "generate_tests",
-          "analyze_test_failures",
-          "test_plan"
-        ],
-        "installation": "Copy the skill folder into a Claude skills directory.",
-        "dependencies": [],
-        "permissions": [
-          "read_code"
-        ],
-        "maintainer": "SkillPilot demo cache",
-        "last_updated": "2026-06-05",
-        "evidence": [
-          "Demo cache entry includes test generation and failure analysis."
-        ]
-      },
-      "match_score": 0.2,
-      "matched_capabilities": [],
-      "missing_capabilities": [
-        "answer_guardrail",
-        "knowledge_hint"
+        "document_parsing",
+        "pdf_reading"
       ],
       "trust_level": "medium",
       "risk_level": "low",
@@ -127,8 +180,8 @@
       "match_score": 0.0,
       "matched_capabilities": [],
       "missing_capabilities": [
-        "answer_guardrail",
-        "knowledge_hint"
+        "document_parsing",
+        "pdf_reading"
       ],
       "trust_level": "medium",
       "risk_level": "high",
@@ -137,11 +190,46 @@
         "候选需要连接外部服务，可能涉及账号或 token。"
       ],
       "reason": "占位评分：基于能力关键词重合、扩展类型一致性和权限风险生成。"
+    },
+    {
+      "candidate": {
+        "name": "python-test-helper-skill",
+        "extension_type": "skill",
+        "source_url": "cache://skills/python-tests",
+        "description": "A cached Skill-style candidate for generating Python test plans and failure analysis prompts.",
+        "capabilities": [
+          "generate_tests",
+          "analyze_test_failures",
+          "test_plan"
+        ],
+        "installation": "Copy the skill folder into a Claude skills directory.",
+        "dependencies": [],
+        "permissions": [
+          "read_code"
+        ],
+        "maintainer": "SkillPilot demo cache",
+        "last_updated": "2026-06-05",
+        "evidence": [
+          "Demo cache entry includes test generation and failure analysis."
+        ]
+      },
+      "match_score": 0.0,
+      "matched_capabilities": [],
+      "missing_capabilities": [
+        "document_parsing",
+        "pdf_reading"
+      ],
+      "trust_level": "medium",
+      "risk_level": "low",
+      "risk_reasons": [
+        "候选主要是说明型能力，当前占位评估未发现高风险权限。"
+      ],
+      "reason": "占位评分：基于能力关键词重合、扩展类型一致性和权限风险生成。"
     }
   ],
   "decision": {
     "decision_type": "build_custom_skill",
-    "reason": "用户显式请求构造 Skill，骨架直接进入 SkillBuilder。",
+    "reason": "没有足够匹配的候选资源，进入自定义 Skill 草案流程。",
     "selected_candidates": [],
     "custom_skill_name": "homework-knowledge-hint"
   },
@@ -157,5 +245,5 @@
       "/home/achewwa/Projects/SkillPilot/generated_skills/homework-knowledge-hint/examples/sample_output.md"
     ]
   },
-  "created_at": "2026-06-05T07:34:14.590318+00:00"
+  "created_at": "2026-06-05T08:41:28.008908+00:00"
 }

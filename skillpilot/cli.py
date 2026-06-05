@@ -30,6 +30,21 @@ def _agent() -> SkillPilotAgent:
 
 def _print_result(result) -> None:
     console.print(f"[bold]Decision:[/bold] {result.decision.decision_type}")
+    console.print(f"[bold]Search queries:[/bold] {len(result.search_plan.queries)}")
+    for index, query in enumerate(result.search_plan.queries, start=1):
+        console.print(f"  {index}. [{query.source_type}] {query.text}", markup=False)
+    if result.search_results:
+        console.print(f"[bold]Search results:[/bold] {len(result.search_results)}")
+        for item in result.search_results[:10]:
+            label = f"[{item.source_type}/{item.status}]"
+            target = item.title or item.query
+            console.print(f"  - {label} {target}", markup=False)
+            if item.url:
+                console.print(f"    {item.url}", markup=False)
+            elif item.error_message:
+                console.print(f"    {item.error_message}", markup=False)
+        if len(result.search_results) > 10:
+            console.print(f"  ... {len(result.search_results) - 10} more results in trace")
     console.print(f"[bold]Report:[/bold] {result.report_path}")
     console.print(f"[bold]Trace:[/bold] {result.trace_path}")
     if result.skill_draft:

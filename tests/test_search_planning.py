@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from skillpilot.config import SearchConfig
+from skillpilot.config import SearchConfig, load_config
 from skillpilot.models import SearchPlan, SearchQuery, TypeClassification
 from skillpilot.modules.search_tools import SearchExecutor
 from skillpilot.modules.stubs import RequirementParser, SourcePlanner
@@ -83,3 +83,10 @@ def test_search_executor_records_skipped_results_when_network_disabled() -> None
     assert results[0].status == "skipped"
     assert results[0].query == plan.queries[0].text
     assert results[0].source_type == "web"
+
+
+def test_network_search_defaults_to_enabled(monkeypatch) -> None:
+    monkeypatch.delenv("SKILLPILOT_ENABLE_NETWORK_SEARCH", raising=False)
+
+    assert SearchConfig().enable_network_search is True
+    assert load_config().search.enable_network_search is True

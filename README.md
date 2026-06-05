@@ -148,6 +148,22 @@ export SKILLPILOT_CLAUDE_COMMAND=claude
 export SKILLPILOT_CLAUDE_MAX_BUDGET_USD=0.05
 ```
 
+## 网络搜索配置
+
+网络搜索默认开启。需要离线测试或课堂演示固定输出时，可以显式关闭：
+
+```bash
+export SKILLPILOT_ENABLE_NETWORK_SEARCH=0
+```
+
+如果 WSL 需要通过宿主机代理访问外网，可以设置：
+
+```bash
+export SKILLPILOT_HTTP_PROXY=http://172.22.0.1:7890
+export SKILLPILOT_SEARCH_TIMEOUT_SECONDS=8
+export SKILLPILOT_SEARCH_MAX_RESULTS=3
+```
+
 ## 参考文件
 
 - `info.pdf`：课程项目要求。

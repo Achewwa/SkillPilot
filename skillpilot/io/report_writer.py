@@ -3,7 +3,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from skillpilot.models import AgentRunResult, Decision, SearchPlan, SearchResult, model_to_dict
+from skillpilot.models import (
+    AgentRunResult,
+    Decision,
+    RetrievedContent,
+    SearchPlan,
+    SearchResult,
+    model_to_dict,
+)
 
 
 class RecommendationWriter:
@@ -17,6 +24,7 @@ class RecommendationWriter:
         decision: Decision,
         search_plan: SearchPlan | None = None,
         search_results: list[SearchResult] | None = None,
+        retrieved_contents: list[RetrievedContent] | None = None,
         report_path: Path | None = None,
     ) -> Path:
         self.outputs_dir.mkdir(parents=True, exist_ok=True)
@@ -70,6 +78,25 @@ class RecommendationWriter:
         lines.extend(
             [
                 "",
+                "## 页面与仓库读取",
+                "",
+            ]
+        )
+
+        if retrieved_contents:
+            for index, content in enumerate(retrieved_contents, start=1):
+                title = content.title or content.url or content.query
+                detail = content.error_message or content.metadata.get("description") or "读取成功。"
+                lines.append(f"{index}. [{content.source_type}/{content.status}] {title}")
+                if content.url:
+                    lines.append(f"   - URL：{content.url}")
+                lines.append(f"   - 说明：{detail}")
+        else:
+            lines.append("暂无页面或仓库读取结果。")
+
+        lines.extend(
+            [
+                "",
                 "## 候选资源与评分",
                 "",
             ]
@@ -88,6 +115,10 @@ class RecommendationWriter:
                         f"   - 来源：{candidate.source_url}",
                     ]
                 )
+                if candidate.evidence:
+                    lines.append("   - 证据：")
+                    for evidence in candidate.evidence[:3]:
+                        lines.append(f"     - {evidence}")
         else:
             lines.append("暂无足够匹配的候选资源。")
 

@@ -69,6 +69,19 @@ The project is for a course assignment on large language model agents. The curre
   - Upgraded `SourcePlanner` to generate 3 to 5 targeted web/GitHub queries for Skill, MCP, Plugin, mixed, and unknown needs.
   - Search plans and search execution statuses are now saved in `outputs/decision_trace.json`, shown in the recommendation report, and summarized in CLI output.
   - Verified proxied network search for `阅读pdf的插件`, finding real web results such as `ZSHYC/pdf-master`.
+- Created feature branch `feature/stage2-reading-extraction` for Stage 2.3 and 2.4 work.
+- Implemented Stage 2.3 and 2.4:
+  - Added structured `RetrievedContent` records for page/repository reads.
+  - Added `PageReader` for ordinary documentation pages.
+  - Added `RepoReader` for GitHub repositories, using the GitHub API for repository metadata, README content, and common files such as `SKILL.md`, `.mcp.json`, `package.json`, and `pyproject.toml`.
+  - Added `ContentReader` to route search results to the correct reader, deduplicate URLs, preserve skipped/failed reads, and avoid breaking the whole pipeline when one read fails.
+  - Added `CandidateExtractor` to convert retrieved content into the shared `Candidate` model, extracting name, extension type, description, capabilities, installation notes, dependencies, permissions, maintainer, last update, and evidence quotes.
+  - Updated the pipeline to prefer candidates extracted from real search/read content, falling back to the local demo cache only when no real candidates can be extracted.
+  - Updated CLI/report/trace output to include page and repository read status.
+- Verified Stage 2.3/2.4 with `conda run -n skill_pilot python -m pytest`: 12 tests passed.
+- Verified a proxied real-search run for `阅读pdf的插件`; it found and read `https://github.com/ZSHYC/pdf-master`, extracted it as a plugin candidate, and wrote evidence into `outputs/recommendation_report.md`.
+- Changed network search to be enabled by default. Set `SKILLPILOT_ENABLE_NETWORK_SEARCH=0` only when an offline run is needed.
+- Re-verified with `conda run -n skill_pilot python -m pytest`: 13 tests passed.
 
 ## Current Stage 2.1 / 2.2 Runtime Output Format
 
@@ -98,10 +111,10 @@ Skill draft: generated_skills/<skill-name>
 
 `outputs/decision_trace.json` now includes structured `search_plan.queries` and `search_results` entries. Each search result preserves title, URL, snippet, source type, original query, status, error message, and metadata when available.
 
-Network search is controlled by environment variables:
+Network search is enabled by default. It can be controlled by environment variables:
 
 ```bash
-SKILLPILOT_ENABLE_NETWORK_SEARCH=1
+SKILLPILOT_ENABLE_NETWORK_SEARCH=0  # optional: disable network search for offline tests
 SKILLPILOT_HTTP_PROXY=http://172.22.0.1:7890
 SKILLPILOT_SEARCH_TIMEOUT_SECONDS=8
 SKILLPILOT_SEARCH_MAX_RESULTS=3
@@ -110,7 +123,6 @@ SKILLPILOT_SEARCH_MAX_RESULTS=3
 Example tested command:
 
 ```bash
-SKILLPILOT_ENABLE_NETWORK_SEARCH=1 \
 SKILLPILOT_HTTP_PROXY=http://172.22.0.1:7890 \
 SKILLPILOT_SEARCH_TIMEOUT_SECONDS=8 \
 SKILLPILOT_SEARCH_MAX_RESULTS=3 \
@@ -121,8 +133,6 @@ conda run -n skill_pilot python main.py recommend "阅读pdf的插件"
 
 - Replace placeholder requirement parsing with LLM-assisted structured extraction.
 - Replace keyword-based Skill / Plugin / MCP classification with a stronger rule + LLM hybrid classifier.
-- Wire real web and GitHub search results into candidate extraction and ranking as the main path.
-- Implement robust candidate extraction from README / SKILL.md / docs.
 - Implement production-quality capability matching and scoring.
 - Implement richer trust evaluation.
 - Implement richer risk analysis.

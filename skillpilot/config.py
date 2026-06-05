@@ -19,7 +19,7 @@ class LLMConfig:
 
 @dataclass(frozen=True)
 class SearchConfig:
-    enable_network_search: bool = False
+    enable_network_search: bool = True
     timeout_seconds: float = 8.0
     max_results_per_query: int = 5
     github_token: str | None = None
@@ -47,7 +47,7 @@ def load_config() -> AppConfig:
         no_session_persistence=os.getenv("SKILLPILOT_CLAUDE_NO_SESSION", "1") != "0",
     )
     search = SearchConfig(
-        enable_network_search=os.getenv("SKILLPILOT_ENABLE_NETWORK_SEARCH", "0") == "1",
+        enable_network_search=os.getenv("SKILLPILOT_ENABLE_NETWORK_SEARCH", "1") == "1",
         timeout_seconds=float(os.getenv("SKILLPILOT_SEARCH_TIMEOUT_SECONDS", "8")),
         max_results_per_query=int(os.getenv("SKILLPILOT_SEARCH_MAX_RESULTS", "5")),
         github_token=os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN"),

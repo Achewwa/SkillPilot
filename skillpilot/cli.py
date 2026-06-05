@@ -45,6 +45,11 @@ def _print_result(result) -> None:
                 console.print(f"    {item.error_message}", markup=False)
         if len(result.search_results) > 10:
             console.print(f"  ... {len(result.search_results) - 10} more results in trace")
+    if result.retrieved_contents:
+        successful_reads = sum(1 for item in result.retrieved_contents if item.status == "success")
+        console.print(
+            f"[bold]Read results:[/bold] {successful_reads}/{len(result.retrieved_contents)} succeeded"
+        )
     console.print(f"[bold]Report:[/bold] {result.report_path}")
     console.print(f"[bold]Trace:[/bold] {result.trace_path}")
     if result.skill_draft:

@@ -51,6 +51,7 @@ def test_recommend_generates_report_and_trace() -> None:
     assert 3 <= len(trace["search_plan"]["queries"]) <= 5
     assert trace["search_plan"]["queries"][0]["text"]
     assert trace["search_results"][0]["status"] == "skipped"
+    assert trace["retrieved_contents"][0]["status"] == "skipped"
 
 
 def test_build_skill_generates_draft() -> None:

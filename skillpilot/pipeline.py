@@ -6,6 +6,8 @@ from skillpilot.builders.skill_builder import SkillBuilder
 from skillpilot.config import AppConfig
 from skillpilot.io.report_writer import RecommendationWriter
 from skillpilot.models import AgentRunResult
+from skillpilot.modules.candidate_extractor import CandidateExtractor
+from skillpilot.modules.readers import ContentReader
 from skillpilot.modules.stubs import (
     CandidateEvaluator,
     DecisionGate,
@@ -24,6 +26,8 @@ class SkillPilotPipeline:
         self.classifier = ExtensionTypeClassifier()
         self.planner = SourcePlanner()
         self.search_executor = SearchExecutor(config.search)
+        self.content_reader = ContentReader(config.search)
+        self.candidate_extractor = CandidateExtractor()
         self.cache = LocalCandidateCache(config.data_dir / "candidate_cache.json")
         self.evaluator = CandidateEvaluator()
         self.decision_gate = DecisionGate()
@@ -35,7 +39,14 @@ class SkillPilotPipeline:
         classification = self.classifier.classify(requirement)
         search_plan = self.planner.plan(requirement, classification)
         search_results = self.search_executor.run(search_plan)
-        candidates = self.cache.load()
+        retrieved_contents = self.content_reader.read(search_results)
+        candidates = self.candidate_extractor.extract(
+            search_results,
+            retrieved_contents,
+            classification,
+        )
+        if not candidates:
+            candidates = self.cache.load()
         evaluations = self.evaluator.evaluate(requirement, classification, candidates)
         decision = self.decision_gate.decide(evaluations)
 
@@ -59,6 +70,7 @@ class SkillPilotPipeline:
             decision=decision,
             search_plan=search_plan,
             search_results=search_results,
+            retrieved_contents=retrieved_contents,
             report_path=report_path,
         )
 
@@ -67,6 +79,7 @@ class SkillPilotPipeline:
             classification=classification,
             search_plan=search_plan,
             search_results=search_results,
+            retrieved_contents=retrieved_contents,
             evaluations=evaluations,
             decision=decision,
             report_path=str(report_path),

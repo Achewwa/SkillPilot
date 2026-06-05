@@ -5,8 +5,8 @@ from pathlib import Path
 from skillpilot.builders.skill_builder import SkillBuilder
 from skillpilot.config import AppConfig
 from skillpilot.io.report_writer import RecommendationWriter
-from skillpilot.models import AgentRunResult
-from skillpilot.modules.candidate_extractor import CandidateExtractor
+from skillpilot.llm import create_llm
+from skillpilot.models import AgentRunResult, SearchResult
 from skillpilot.modules.readers import ContentReader
 from skillpilot.modules.stubs import (
     CandidateEvaluator,
@@ -22,14 +22,14 @@ from skillpilot.modules.search_tools import SearchExecutor
 class SkillPilotPipeline:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
-        self.parser = RequirementParser()
+        llm = create_llm(config.llm)
+        self.parser = RequirementParser(llm)
         self.classifier = ExtensionTypeClassifier()
         self.planner = SourcePlanner()
         self.search_executor = SearchExecutor(config.search)
         self.content_reader = ContentReader(config.search)
-        self.candidate_extractor = CandidateExtractor()
         self.cache = LocalCandidateCache(config.data_dir / "candidate_cache.json")
-        self.evaluator = CandidateEvaluator()
+        self.evaluator = CandidateEvaluator(llm if config.llm.enable_evaluation else None)
         self.decision_gate = DecisionGate()
         self.writer = RecommendationWriter(config.outputs_dir)
         self.skill_builder = SkillBuilder(config.generated_skills_dir)
@@ -40,14 +40,17 @@ class SkillPilotPipeline:
         search_plan = self.planner.plan(requirement, classification)
         search_results = self.search_executor.run(search_plan)
         retrieved_contents = self.content_reader.read(search_results)
-        candidates = self.candidate_extractor.extract(
-            search_results,
-            retrieved_contents,
+        evaluations = self.evaluator.evaluate_retrieved(
+            requirement,
             classification,
+            retrieved_contents,
         )
-        if not candidates:
-            candidates = self.cache.load()
-        evaluations = self.evaluator.evaluate(requirement, classification, candidates)
+        if not evaluations and self._should_use_offline_cache(search_results):
+            evaluations = self.evaluator.evaluate(
+                requirement,
+                classification,
+                self.cache.load(),
+            )
         decision = self.decision_gate.decide(evaluations)
 
         if force_build_skill:
@@ -68,6 +71,7 @@ class SkillPilotPipeline:
             requirement_text=requirement.raw_text,
             classification_reason=classification.reason,
             decision=decision,
+            requirement=requirement,
             search_plan=search_plan,
             search_results=search_results,
             retrieved_contents=retrieved_contents,
@@ -88,3 +92,8 @@ class SkillPilotPipeline:
         )
         self.writer.write_trace(result, trace_path=Path(result.trace_path))
         return result
+
+    def _should_use_offline_cache(self, search_results: list[SearchResult]) -> bool:
+        if not search_results:
+            return True
+        return all(result.status == "skipped" for result in search_results)

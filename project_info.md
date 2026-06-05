@@ -16,7 +16,8 @@ The project is for a course assignment on large language model agents. The curre
 - The MVP should be CLI-first.
 - Do not automatically install third-party Claude Code plugins, MCP servers, or third-party scripts.
 - Do not automatically execute untrusted shell commands from candidate resources.
-- Use cached candidate data for stable classroom demos; live search can be an optional enhancement.
+- Prioritize real network search for candidate discovery. Cached data should not be the main implementation path.
+- For classroom demos, record successful real-search runs in advance instead of relying on offline cache fixtures.
 - The previous fixed schedule is invalid. Progress should follow the user's actual pace.
 
 ## Completed
@@ -66,23 +67,84 @@ The project is for a course assignment on large language model agents. The curre
 
 - Replace placeholder requirement parsing with LLM-assisted structured extraction.
 - Replace keyword-based Skill / Plugin / MCP classification with a stronger rule + LLM hybrid classifier.
-- Implement real candidate search and reading.
+- Implement real web and GitHub candidate search.
 - Implement robust candidate extraction from README / SKILL.md / docs.
 - Implement production-quality capability matching and scoring.
 - Implement richer trust evaluation.
 - Implement richer risk analysis.
 - Add broader tests beyond smoke coverage.
-- Prepare demo cases and stable demo outputs.
+- Prepare demo cases, recorded real-search runs, and stable screenshots/video for classroom presentation.
 - Prepare classroom PPT.
 - Prepare final Chinese written report PDF.
 
 ## Proposed Next Steps
 
 1. Run smoke tests and demo commands after skeleton changes.
-2. Expand local candidate cache so classroom demos have richer evidence.
-3. Replace stubs one module at a time, starting with requirement parsing and extension type classification.
-4. Implement candidate extraction from cached README / SKILL.md text before adding live search.
-5. Keep live GitHub or web search optional until the offline demo path is stable.
+2. Replace stubs one module at a time, starting with requirement parsing and extension type classification.
+3. Implement real network search as the main second-stage path.
+4. Record successful real-search demo runs for classroom presentation, including terminal output, reports, and screenshots.
+5. Keep local demo data only as development fixtures or test inputs, not as the product's primary candidate source.
+
+## Detailed Stage 2 Plan: Real Search MVP
+
+Stage 2 should be split into small, testable steps. The goal is to replace the skeleton's placeholder candidate path with real web and GitHub discovery while preserving explainability and safety.
+
+### 2.1 Search Interface Layer
+
+- Define unified `SearchQuery` and `SearchResult` models.
+- Implement a `WebSearchTool` for real web search results.
+- Implement a `GitHubSearchTool` for repository search and metadata lookup.
+- Preserve title, URL, snippet, source type, query string, and retrieval status for every result.
+- Add timeout and error handling so failed searches are visible in the decision trace.
+
+### 2.2 Search Planning
+
+- Implement `SourcePlanner` so it expands a user requirement into 3 to 5 targeted search queries.
+- Generate different query patterns for Skill, MCP, Plugin, and mixed needs.
+- Include Claude-specific terms such as `Claude Skill`, `SKILL.md`, `Claude Code plugin`, `MCP server`, `GitHub`, and task-specific capability keywords.
+- Store the generated query plan in `outputs/decision_trace.json`.
+
+### 2.3 Page and Repository Reading
+
+- Implement `PageReader` for ordinary documentation pages.
+- Implement `RepoReader` for GitHub repositories, prioritizing README, description, license, stars, last update, and common config files.
+- Prefer structured GitHub API responses where possible, and fall back to raw README content when needed.
+- Record failed reads without dropping the whole pipeline.
+
+### 2.4 Candidate Extraction
+
+- Implement `CandidateExtractor` to convert search results and retrieved content into the shared `Candidate` model.
+- Extract name, extension type, description, capabilities, installation notes, dependencies, permissions, maintainer signals, and evidence quotes.
+- Detect evidence from README / `SKILL.md` / docs instead of relying only on search snippets.
+- Keep extraction conservative: unknown fields should stay unknown rather than being guessed.
+
+### 2.5 Evaluation and Ranking
+
+- Upgrade `CapabilityMatcher`, `TrustEvaluator`, and `RiskAnalyzer`.
+- Use a simple weighted score for the MVP:
+  - capability match: 40%
+  - type match: 15%
+  - documentation quality: 15%
+  - maintenance / trust signals: 15%
+  - safety risk: 15%
+- Rank candidates and keep both numeric scores and natural-language reasons.
+
+### 2.6 Decision and Report Generation
+
+- Implement `DecisionGate` rules:
+  - high match and low/medium risk -> recommend existing resource
+  - medium match -> recommend existing resource plus custom Skill supplement
+  - low match -> build custom Skill draft
+  - high risk -> avoid direct installation recommendation and provide safer alternatives
+- Generate a Chinese recommendation report with search queries, candidate evidence, scores, missing capabilities, trust signals, risks, and final decision.
+- Save a complete `decision_trace.json` for reproducibility.
+
+### 2.7 Failure Handling and Demo Recording
+
+- If search or reading fails, report the exact failed query or URL and continue with remaining results.
+- If no sufficient candidate is found, clearly explain that real search did not find enough evidence and then enter the custom Skill path.
+- Do not fabricate search results for classroom presentation.
+- Prepare classroom demos by recording successful real-search runs in advance, including terminal commands, generated reports, and final artifacts.
 
 ## Environment Notes
 

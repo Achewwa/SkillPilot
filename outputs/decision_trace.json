@@ -1,54 +1,54 @@
 {
   "requirement": {
-    "raw_text": "阅读pdf的插件",
-    "task_domain": "document_processing",
+    "raw_text": "自动管理github",
+    "task_domain": "software_engineering",
     "desired_capabilities": [
-      "pdf_reading",
-      "document_parsing"
+      "github_issue_read",
+      "codebase_access"
     ],
-    "requires_codebase_access": false,
+    "requires_codebase_access": true,
     "requires_command_execution": false,
-    "requires_external_service": false,
+    "requires_external_service": true,
     "risk_tolerance": "medium"
   },
   "classification": {
-    "recommended_type": "plugin",
-    "confidence": 0.74,
-    "reason": "用户明确提到插件，优先规划 Claude Code Plugin 方向，同时保留后续安全评估。"
+    "recommended_type": "mcp",
+    "confidence": 0.78,
+    "reason": "需求涉及外部服务或仓库访问，MCP 更适合作为工具连接层。"
   },
   "search_plan": {
-    "extension_type": "plugin",
+    "extension_type": "mcp",
     "sources": [
       "web_search",
       "github_repository_search"
     ],
     "queries": [
       {
-        "text": "PDF reading document parsing Claude Code plugin GitHub",
+        "text": "GitHub issue reader codebase access MCP server GitHub",
         "source_type": "github",
-        "extension_type": "plugin",
-        "purpose": "Find Claude Code plugin repositories.",
+        "extension_type": "mcp",
+        "purpose": "Find MCP server repositories.",
         "max_results": 5
       },
       {
-        "text": "PDF reading document parsing \"Claude Code plugin\"",
+        "text": "GitHub issue reader codebase access \"Model Context Protocol\" server",
         "source_type": "web",
-        "extension_type": "plugin",
-        "purpose": "Find plugin documentation or examples.",
+        "extension_type": "mcp",
+        "purpose": "Find MCP documentation and directories.",
         "max_results": 5
       },
       {
-        "text": "PDF reading document parsing \"claude-code\" plugin",
+        "text": "GitHub issue reader codebase access \"mcp server\"",
         "source_type": "github",
-        "extension_type": "plugin",
-        "purpose": "Find repositories using Claude Code plugin naming.",
+        "extension_type": "mcp",
+        "purpose": "Find repositories using common MCP wording.",
         "max_results": 5
       },
       {
-        "text": "阅读pdf的插件 Claude Code plugin",
+        "text": "自动管理github Claude MCP server",
         "source_type": "web",
-        "extension_type": "plugin",
-        "purpose": "Search the original requirement against plugin terms.",
+        "extension_type": "mcp",
+        "purpose": "Search the original requirement against MCP terms.",
         "max_results": 5
       }
     ]
@@ -57,100 +57,45 @@
     {
       "title": "",
       "url": "",
-      "snippet": "GitHub search returned no repositories.",
+      "snippet": "Network search is disabled. Set SKILLPILOT_ENABLE_NETWORK_SEARCH=1 to execute this query.",
       "source_type": "github",
-      "query": "PDF reading document parsing Claude Code plugin GitHub",
-      "status": "no_results",
+      "query": "GitHub issue reader codebase access MCP server GitHub",
+      "status": "skipped",
       "error_message": null,
       "metadata": {}
     },
     {
       "title": "",
       "url": "",
-      "snippet": "Web search returned no visible results.",
+      "snippet": "Network search is disabled. Set SKILLPILOT_ENABLE_NETWORK_SEARCH=1 to execute this query.",
       "source_type": "web",
-      "query": "PDF reading document parsing \"Claude Code plugin\"",
-      "status": "no_results",
+      "query": "GitHub issue reader codebase access \"Model Context Protocol\" server",
+      "status": "skipped",
       "error_message": null,
       "metadata": {}
     },
     {
       "title": "",
       "url": "",
-      "snippet": "GitHub search returned no repositories.",
+      "snippet": "Network search is disabled. Set SKILLPILOT_ENABLE_NETWORK_SEARCH=1 to execute this query.",
       "source_type": "github",
-      "query": "PDF reading document parsing \"claude-code\" plugin",
-      "status": "no_results",
+      "query": "GitHub issue reader codebase access \"mcp server\"",
+      "status": "skipped",
       "error_message": null,
       "metadata": {}
     },
     {
-      "title": "ZSHYC/pdf-master: 全能型 PDF 处理 Claude Code 插件 - GitHub",
-      "url": "https://github.com/ZSHYC/pdf-master",
-      "snippet": "PDF -Master 🚀 全能型 PDF 处理 Claude Code 插件 一个插件，覆盖所有 PDF 场景 — 解析、编辑、转换、AI 增强、OCR、安全 🌐 官网 • 功能特性 • 快速开始 • 使用指南 • AI 配置 • 开发",
+      "title": "",
+      "url": "",
+      "snippet": "Network search is disabled. Set SKILLPILOT_ENABLE_NETWORK_SEARCH=1 to execute this query.",
       "source_type": "web",
-      "query": "阅读pdf的插件 Claude Code plugin",
-      "status": "success",
-      "error_message": null,
-      "metadata": {}
-    },
-    {
-      "title": "PDF-Master - 全能型 PDF 处理 Claude Code 插件",
-      "url": "https://zshyc.github.io/pdf-master/",
-      "snippet": "全能型 PDF 处理 Claude Code 插件 一个插件，覆盖所有 PDF 场景 解析 · 编辑 · 转换 · AI 增强 · OCR · 安全",
-      "source_type": "web",
-      "query": "阅读pdf的插件 Claude Code plugin",
-      "status": "success",
-      "error_message": null,
-      "metadata": {}
-    },
-    {
-      "title": "一行命令，让你的 Code Agent 会读PDF - 知乎",
-      "url": "https://zhuanlan.zhihu.com/p/2022009123592480470",
-      "snippet": "Claude Code、Cursor、Kimi Code、Codex、Cline——现在大家写代码越来越依赖 Code Agent。但大模型有一个短板： 读不了 PDF 。你丢给它一个 PDF 文件路径，它只会告诉你&#34;这是个二进制文件，我读不了&#34;。论…",
-      "source_type": "web",
-      "query": "阅读pdf的插件 Claude Code plugin",
-      "status": "success",
+      "query": "自动管理github Claude MCP server",
+      "status": "skipped",
       "error_message": null,
       "metadata": {}
     }
   ],
   "evaluations": [
-    {
-      "candidate": {
-        "name": "paper-review-skill-template",
-        "extension_type": "skill",
-        "source_url": "cache://skills/paper-review",
-        "description": "A cached Skill-style template for structured paper review and formatting checks.",
-        "capabilities": [
-          "writing_review",
-          "structure_check",
-          "citation_check"
-        ],
-        "installation": "Copy the skill folder into a Claude skills directory.",
-        "dependencies": [],
-        "permissions": [
-          "read_documents"
-        ],
-        "maintainer": "SkillPilot demo cache",
-        "last_updated": "2026-06-05",
-        "evidence": [
-          "Demo cache entry describes review workflow and output sections."
-        ]
-      },
-      "match_score": 0.0,
-      "matched_capabilities": [],
-      "missing_capabilities": [
-        "document_parsing",
-        "pdf_reading"
-      ],
-      "trust_level": "medium",
-      "risk_level": "low",
-      "risk_reasons": [
-        "候选主要是说明型能力，当前占位评估未发现高风险权限。"
-      ],
-      "reason": "占位评分：基于能力关键词重合、扩展类型一致性和权限风险生成。"
-    },
     {
       "candidate": {
         "name": "github-issue-workflow-mcp",
@@ -177,17 +122,52 @@
           "Demo cache entry highlights GitHub access and repository permissions."
         ]
       },
-      "match_score": 0.0,
-      "matched_capabilities": [],
-      "missing_capabilities": [
-        "document_parsing",
-        "pdf_reading"
+      "match_score": 0.95,
+      "matched_capabilities": [
+        "codebase_access",
+        "github_issue_read"
       ],
+      "missing_capabilities": [],
       "trust_level": "medium",
       "risk_level": "high",
       "risk_reasons": [
         "候选涉及仓库写入权限，需要人工确认后再启用。",
         "候选需要连接外部服务，可能涉及账号或 token。"
+      ],
+      "reason": "占位评分：基于能力关键词重合、扩展类型一致性和权限风险生成。"
+    },
+    {
+      "candidate": {
+        "name": "paper-review-skill-template",
+        "extension_type": "skill",
+        "source_url": "cache://skills/paper-review",
+        "description": "A cached Skill-style template for structured paper review and formatting checks.",
+        "capabilities": [
+          "writing_review",
+          "structure_check",
+          "citation_check"
+        ],
+        "installation": "Copy the skill folder into a Claude skills directory.",
+        "dependencies": [],
+        "permissions": [
+          "read_documents"
+        ],
+        "maintainer": "SkillPilot demo cache",
+        "last_updated": "2026-06-05",
+        "evidence": [
+          "Demo cache entry describes review workflow and output sections."
+        ]
+      },
+      "match_score": 0.0,
+      "matched_capabilities": [],
+      "missing_capabilities": [
+        "codebase_access",
+        "github_issue_read"
+      ],
+      "trust_level": "medium",
+      "risk_level": "low",
+      "risk_reasons": [
+        "候选主要是说明型能力，当前占位评估未发现高风险权限。"
       ],
       "reason": "占位评分：基于能力关键词重合、扩展类型一致性和权限风险生成。"
     },
@@ -216,8 +196,8 @@
       "match_score": 0.0,
       "matched_capabilities": [],
       "missing_capabilities": [
-        "document_parsing",
-        "pdf_reading"
+        "codebase_access",
+        "github_issue_read"
       ],
       "trust_level": "medium",
       "risk_level": "low",
@@ -228,9 +208,120 @@
     }
   ],
   "decision": {
-    "decision_type": "build_custom_skill",
-    "reason": "没有足够匹配的候选资源，进入自定义 Skill 草案流程。",
-    "selected_candidates": [],
+    "decision_type": "recommend_with_custom_extension",
+    "reason": "候选资源有一定相关性，但仍建议用自定义 Skill 补齐缺口。",
+    "selected_candidates": [
+      {
+        "candidate": {
+          "name": "github-issue-workflow-mcp",
+          "extension_type": "mcp",
+          "source_url": "cache://mcp/github-issues",
+          "description": "A cached MCP-style candidate for reading GitHub issues and coordinating code changes.",
+          "capabilities": [
+            "github_issue_read",
+            "codebase_access",
+            "change_planning"
+          ],
+          "installation": "Configure a GitHub token and register the MCP server manually.",
+          "dependencies": [
+            "github_token"
+          ],
+          "permissions": [
+            "external_service",
+            "read_repository",
+            "write_repository"
+          ],
+          "maintainer": "SkillPilot demo cache",
+          "last_updated": "2026-06-05",
+          "evidence": [
+            "Demo cache entry highlights GitHub access and repository permissions."
+          ]
+        },
+        "match_score": 0.95,
+        "matched_capabilities": [
+          "codebase_access",
+          "github_issue_read"
+        ],
+        "missing_capabilities": [],
+        "trust_level": "medium",
+        "risk_level": "high",
+        "risk_reasons": [
+          "候选涉及仓库写入权限，需要人工确认后再启用。",
+          "候选需要连接外部服务，可能涉及账号或 token。"
+        ],
+        "reason": "占位评分：基于能力关键词重合、扩展类型一致性和权限风险生成。"
+      },
+      {
+        "candidate": {
+          "name": "paper-review-skill-template",
+          "extension_type": "skill",
+          "source_url": "cache://skills/paper-review",
+          "description": "A cached Skill-style template for structured paper review and formatting checks.",
+          "capabilities": [
+            "writing_review",
+            "structure_check",
+            "citation_check"
+          ],
+          "installation": "Copy the skill folder into a Claude skills directory.",
+          "dependencies": [],
+          "permissions": [
+            "read_documents"
+          ],
+          "maintainer": "SkillPilot demo cache",
+          "last_updated": "2026-06-05",
+          "evidence": [
+            "Demo cache entry describes review workflow and output sections."
+          ]
+        },
+        "match_score": 0.0,
+        "matched_capabilities": [],
+        "missing_capabilities": [
+          "codebase_access",
+          "github_issue_read"
+        ],
+        "trust_level": "medium",
+        "risk_level": "low",
+        "risk_reasons": [
+          "候选主要是说明型能力，当前占位评估未发现高风险权限。"
+        ],
+        "reason": "占位评分：基于能力关键词重合、扩展类型一致性和权限风险生成。"
+      },
+      {
+        "candidate": {
+          "name": "python-test-helper-skill",
+          "extension_type": "skill",
+          "source_url": "cache://skills/python-tests",
+          "description": "A cached Skill-style candidate for generating Python test plans and failure analysis prompts.",
+          "capabilities": [
+            "generate_tests",
+            "analyze_test_failures",
+            "test_plan"
+          ],
+          "installation": "Copy the skill folder into a Claude skills directory.",
+          "dependencies": [],
+          "permissions": [
+            "read_code"
+          ],
+          "maintainer": "SkillPilot demo cache",
+          "last_updated": "2026-06-05",
+          "evidence": [
+            "Demo cache entry includes test generation and failure analysis."
+          ]
+        },
+        "match_score": 0.0,
+        "matched_capabilities": [],
+        "missing_capabilities": [
+          "codebase_access",
+          "github_issue_read"
+        ],
+        "trust_level": "medium",
+        "risk_level": "low",
+        "risk_reasons": [
+          "候选主要是说明型能力，当前占位评估未发现高风险权限。"
+        ],
+        "reason": "占位评分：基于能力关键词重合、扩展类型一致性和权限风险生成。"
+      }
+    ],
     "custom_skill_name": "homework-knowledge-hint"
   },
   "report_path": "/home/achewwa/Projects/SkillPilot/outputs/recommendation_report.md",
@@ -245,5 +336,5 @@
       "/home/achewwa/Projects/SkillPilot/generated_skills/homework-knowledge-hint/examples/sample_output.md"
     ]
   },
-  "created_at": "2026-06-05T08:41:28.008908+00:00"
+  "created_at": "2026-06-05T08:45:21.325100+00:00"
 }

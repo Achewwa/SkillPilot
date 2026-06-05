@@ -1,0 +1,33 @@
+[project]
+name = "skillpilot"
+version = "0.1.0"
+description = "A lightweight Python agent skeleton for Claude extension recommendation and Skill draft construction."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "beautifulsoup4",
+    "httpx",
+    "markdownify",
+    "openai",
+    "pydantic",
+    "pygithub",
+    "pypdf",
+    "python-dotenv",
+    "pyyaml",
+    "requests",
+    "rich",
+    "typer",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+]
+
+[project.scripts]
+skillpilot = "skillpilot.cli:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

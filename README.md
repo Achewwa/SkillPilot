@@ -54,12 +54,15 @@ MVP 不会自动安装第三方 Plugin 或 MCP Server，也不会自动运行第
 ## 计划中的命令行形式
 
 ```bash
+python main.py
 python main.py recommend "我想让 Claude 自动生成 Python 单元测试并分析失败原因"
 python main.py build-skill "帮我构造一个根据课程课件给作业题提示知识点但不直接给答案的 Skill"
 python main.py demo --case skill
 python main.py demo --case mcp
 python main.py demo --case build
 ```
+
+直接运行 `python main.py` 会进入交互式会话。会话中直接输入自然语言需求即可，系统会自动尝试推荐已有扩展；如果判断没有合适候选，会进入自定义 Skill 草案流程。也可以使用 `/build <需求>` 直接生成 Skill 草案，使用 `/demo skill|mcp|build` 运行演示案例，使用 `/exit` 退出。
 
 ## 预期输出
 
@@ -106,9 +109,11 @@ SkillPilot 不应无条件推荐或生成高风险能力。以下行为需要被
 - 安装初始 Python 依赖。
 - 验证 WSL 中的 Claude Code 可以正常调用。
 - 创建项目介绍 README。
-- 创建 `projects_info.md` 作为跨窗口同步的项目记忆文件。
+- 创建 `project_info.md` 作为跨窗口同步的项目记忆文件。
+- 搭建可运行 Python 项目骨架，包括 CLI、核心模型、占位 agent 流程、本地 demo 缓存、报告输出和自定义 Skill 草案生成。
+- 添加基座 LLM 配置层，默认复用 WSL 本地 `claude` CLI 的现有配置。
 
-具体进度请查看 `projects_info.md`。
+具体进度请查看 `project_info.md`。
 
 ## 环境使用
 
@@ -131,8 +136,20 @@ claude -p --tools '' --no-session-persistence --max-budget-usd 0.05 'Please only
 OK
 ```
 
+## LLM 配置
+
+项目代码中的基座 LLM 默认通过 WSL 本地 `claude` CLI 调用，复用当前机器上已有的 Claude Code 配置，不在项目内保存 API key 或 endpoint。
+
+可选环境变量：
+
+```bash
+export SKILLPILOT_LLM_PROVIDER=claude_cli
+export SKILLPILOT_CLAUDE_COMMAND=claude
+export SKILLPILOT_CLAUDE_MAX_BUDGET_USD=0.05
+```
+
 ## 参考文件
 
-- `课程项目.pdf`：课程项目要求。
+- `info.pdf`：课程项目要求。
 - `project_draft.md`：原始项目计划草案，仅作为参考，后续可以根据实际实现删改。
-- `projects_info.md`：项目进度与同步信息。
+- `project_info.md`：项目进度与同步信息。

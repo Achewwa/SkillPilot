@@ -22,7 +22,7 @@ The project is for a course assignment on large language model agents. The curre
 ## Completed
 
 - Connected to the WSL project directory: `/home/achewwa/Projects/SkillPilot`.
-- Read the course requirement PDF: `课程项目.pdf`.
+- Read the course requirement PDF: `info.pdf`.
 - Read the original project draft: `project_draft.md`.
 - Established the initial project direction: SkillPilot as a search, evaluation, recommendation, and custom Skill building agent.
 - Created conda environment `skill_pilot` at `/home/achewwa/miniconda3/envs/skill_pilot`.
@@ -45,38 +45,44 @@ The project is for a course assignment on large language model agents. The curre
 - Updated WSL Claude Code settings to use the configured third-party endpoint.
 - Verified WSL `claude -p` can return `OK` with the current configuration.
 - Created `README.md` for project introduction.
-- Created this `projects_info.md` file for cross-window synchronization.
+- Created this `project_info.md` file for cross-window synchronization.
+- Added the runnable Python skeleton:
+  - `pyproject.toml`
+  - `main.py`
+  - `skillpilot/` package
+  - CLI commands for `recommend`, `build-skill`, and `demo`
+  - Pydantic models for requirements, candidates, evaluations, decisions, and traces
+  - Stub pipeline for parsing, classification, source planning, cache loading, evaluation, and decision gating
+  - Local demo cache under `data/`
+  - Markdown report and JSON decision trace writers
+  - Placeholder custom Skill draft builder
+- Added a base LLM adapter that defaults to the WSL-local `claude` CLI, reusing the existing Claude Code configuration instead of hardcoding secrets or endpoints.
+- Added smoke tests for CLI help, recommendation output, Skill draft generation, and demo cases.
+- Added an interactive CLI session: running `python main.py` now accepts natural language directly, with `/build`, `/demo`, `/help`, and `/exit` shortcuts.
+- Verified `conda run -n skill_pilot python -m pytest` passes with 5 tests.
+- Verified the skeleton commands can generate `outputs/recommendation_report.md`, `outputs/decision_trace.json`, and `generated_skills/homework-knowledge-hint/`.
 
 ## Not Started
 
-- Initialize the Python project structure.
-- Implement CLI entrypoint.
-- Define core data models and schemas.
-- Build the agent state and orchestration loop.
-- Implement requirement parsing.
-- Implement Skill / Plugin / MCP classification.
-- Prepare local candidate cache.
-- Implement candidate search and reading.
-- Implement candidate extraction.
-- Implement capability matching and scoring.
-- Implement trust evaluation.
-- Implement risk analysis.
-- Implement decision gate.
-- Implement recommendation report generation.
-- Implement custom Skill generation.
-- Add tests.
+- Replace placeholder requirement parsing with LLM-assisted structured extraction.
+- Replace keyword-based Skill / Plugin / MCP classification with a stronger rule + LLM hybrid classifier.
+- Implement real candidate search and reading.
+- Implement robust candidate extraction from README / SKILL.md / docs.
+- Implement production-quality capability matching and scoring.
+- Implement richer trust evaluation.
+- Implement richer risk analysis.
+- Add broader tests beyond smoke coverage.
 - Prepare demo cases and stable demo outputs.
 - Prepare classroom PPT.
 - Prepare final Chinese written report PDF.
 
 ## Proposed Next Steps
 
-1. Initialize git and connect the repository to `Achewwa/SkillPilot`.
-2. Create the Python project skeleton.
-3. Add `requirements.txt` or `pyproject.toml`.
-4. Implement core models first, because every later module depends on them.
-5. Build a small offline candidate cache before implementing live search.
-6. Implement the three demo cases early so the project remains demonstrable throughout development.
+1. Run smoke tests and demo commands after skeleton changes.
+2. Expand local candidate cache so classroom demos have richer evidence.
+3. Replace stubs one module at a time, starting with requirement parsing and extension type classification.
+4. Implement candidate extraction from cached README / SKILL.md text before adding live search.
+5. Keep live GitHub or web search optional until the offline demo path is stable.
 
 ## Environment Notes
 
@@ -101,5 +107,5 @@ OK
 
 ## Source Documents
 
-- `课程项目.pdf`: course requirements.
+- `info.pdf`: course requirements.
 - `project_draft.md`: original project draft, used as reference only. It can be modified or reduced as implementation proceeds.

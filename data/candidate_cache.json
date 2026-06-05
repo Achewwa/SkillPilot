@@ -1,0 +1,41 @@
+[
+  {
+    "name": "paper-review-skill-template",
+    "extension_type": "skill",
+    "source_url": "cache://skills/paper-review",
+    "description": "A cached Skill-style template for structured paper review and formatting checks.",
+    "capabilities": ["writing_review", "structure_check", "citation_check"],
+    "installation": "Copy the skill folder into a Claude skills directory.",
+    "dependencies": [],
+    "permissions": ["read_documents"],
+    "maintainer": "SkillPilot demo cache",
+    "last_updated": "2026-06-05",
+    "evidence": ["Demo cache entry describes review workflow and output sections."]
+  },
+  {
+    "name": "github-issue-workflow-mcp",
+    "extension_type": "mcp",
+    "source_url": "cache://mcp/github-issues",
+    "description": "A cached MCP-style candidate for reading GitHub issues and coordinating code changes.",
+    "capabilities": ["github_issue_read", "codebase_access", "change_planning"],
+    "installation": "Configure a GitHub token and register the MCP server manually.",
+    "dependencies": ["github_token"],
+    "permissions": ["external_service", "read_repository", "write_repository"],
+    "maintainer": "SkillPilot demo cache",
+    "last_updated": "2026-06-05",
+    "evidence": ["Demo cache entry highlights GitHub access and repository permissions."]
+  },
+  {
+    "name": "python-test-helper-skill",
+    "extension_type": "skill",
+    "source_url": "cache://skills/python-tests",
+    "description": "A cached Skill-style candidate for generating Python test plans and failure analysis prompts.",
+    "capabilities": ["generate_tests", "analyze_test_failures", "test_plan"],
+    "installation": "Copy the skill folder into a Claude skills directory.",
+    "dependencies": [],
+    "permissions": ["read_code"],
+    "maintainer": "SkillPilot demo cache",
+    "last_updated": "2026-06-05",
+    "evidence": ["Demo cache entry includes test generation and failure analysis."]
+  }
+]

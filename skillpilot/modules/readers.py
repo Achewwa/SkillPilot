@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -65,6 +65,7 @@ class PageReader:
                 source_type=result.source_type,
                 query=result.query,
                 status="failed",
+                source_id=result.source_id,
                 error_message=f"Unsupported content type: {content_type or 'unknown'}",
                 metadata=metadata,
             )
@@ -75,6 +76,7 @@ class PageReader:
             source_type=result.source_type,
             query=result.query,
             status="success",
+            source_id=result.source_id,
             content=self._truncate(text),
             metadata=metadata,
         )
@@ -113,6 +115,7 @@ class PageReader:
             source_type=result.source_type,
             query=result.query,
             status="skipped",
+            source_id=result.source_id,
             error_message=message,
         )
 
@@ -123,6 +126,7 @@ class PageReader:
             source_type=result.source_type,
             query=result.query,
             status="failed",
+            source_id=result.source_id,
             error_message=str(error),
         )
 
@@ -156,6 +160,11 @@ class RepoReader:
         if result.status != "success" or not result.url:
             return self._skipped(result, "Search result has no readable repository URL.")
 
+        repo_location = self.parse_github_location(result.url)
+        if repo_location and repo_location[3]:
+            owner, repo, ref, path = repo_location
+            return self._read_repository_path(result, owner, repo, ref, path)
+
         repo_ref = self.parse_github_repo(result.url)
         if repo_ref is None:
             return self._failed_message(result, "URL is not a GitHub repository URL.")
@@ -181,6 +190,7 @@ class RepoReader:
             source_type="github",
             query=result.query,
             status="success",
+            source_id=result.source_id,
             content=self._truncate(content),
             metadata=metadata,
         )
@@ -197,6 +207,101 @@ class RepoReader:
         if not owner or not repo:
             return None
         return owner, repo
+
+    def parse_github_location(self, url: str) -> tuple[str, str, str, str] | None:
+        parsed = urlparse(url)
+        if parsed.netloc.lower() not in {"github.com", "www.github.com"}:
+            return None
+        parts = [part for part in parsed.path.strip("/").split("/") if part]
+        if len(parts) < 2:
+            return None
+        owner = parts[0]
+        repo = parts[1].removesuffix(".git")
+        if len(parts) >= 5 and parts[2] in {"tree", "blob"}:
+            return owner, repo, parts[3], "/".join(parts[4:])
+        return owner, repo, "main", ""
+
+    def _read_repository_path(
+        self,
+        result: SearchResult,
+        owner: str,
+        repo: str,
+        ref: str,
+        path: str,
+    ) -> RetrievedContent:
+        try:
+            with httpx.Client(
+                timeout=self.timeout_seconds,
+                follow_redirects=True,
+                headers={"User-Agent": self.user_agent},
+                proxy=self.proxy_url,
+            ) as client:
+                skill_path = path if path.endswith("SKILL.md") else f"{path.rstrip('/')}/SKILL.md"
+                readme_path = path if path.endswith("README.md") else f"{path.rstrip('/')}/README.md"
+                skill_text = self._get_raw_github_file(client, owner, repo, ref, skill_path)
+                readme_text = self._get_raw_github_file(client, owner, repo, ref, readme_path)
+        except Exception as exc:  # noqa: BLE001 - read failures should stay in the trace.
+            return self._failed(result, exc)
+
+        if result.source_id == "skillsmp_directory" and not skill_text:
+            return self._failed_message(
+                result,
+                f"No SKILL.md found under SkillsMP GitHub path `{path}`.",
+            )
+
+        if not skill_text and not readme_text:
+            return self._failed_message(
+                result,
+                f"No SKILL.md or README.md found under repository path `{path}`.",
+            )
+
+        metadata = {
+            "full_name": f"{owner}/{repo}",
+            "description": result.snippet,
+            "stars": result.metadata.get("stars"),
+            "last_updated": result.metadata.get("updated_at") or result.metadata.get("last_updated"),
+            "author": result.metadata.get("author"),
+            "skillsmp_url": result.metadata.get("skillsmp_url"),
+            "source_subpath": path,
+            "common_files": ["SKILL.md"] if skill_text else [],
+        }
+        sections = [
+            f"# {result.title or path.rsplit('/', 1)[-1]}",
+            f"Repository: {owner}/{repo}",
+            f"Path: {path}",
+        ]
+        if skill_text:
+            sections.extend(["", "## SKILL.md", skill_text])
+        if readme_text:
+            sections.extend(["", "## README.md", readme_text])
+
+        return RetrievedContent(
+            title=result.title or f"{owner}/{repo}",
+            url=result.url,
+            source_type="github",
+            query=result.query,
+            status="success",
+            source_id=result.source_id,
+            content=self._truncate("\n".join(sections)),
+            metadata=metadata,
+        )
+
+    def _get_raw_github_file(
+        self,
+        client: httpx.Client,
+        owner: str,
+        repo: str,
+        ref: str,
+        path: str,
+    ) -> str:
+        encoded_path = quote(path, safe="/")
+        response = client.get(
+            f"https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{encoded_path}"
+        )
+        if response.status_code == 404:
+            return ""
+        response.raise_for_status()
+        return response.text
 
     def _headers(self, accept: str) -> dict[str, str]:
         headers = {
@@ -304,6 +409,7 @@ class RepoReader:
             source_type=result.source_type,
             query=result.query,
             status="skipped",
+            source_id=result.source_id,
             error_message=message,
         )
 
@@ -317,6 +423,7 @@ class RepoReader:
             source_type=result.source_type,
             query=result.query,
             status="failed",
+            source_id=result.source_id,
             error_message=message,
         )
 
@@ -350,6 +457,7 @@ class ContentReader:
                         source_type=result.source_type,
                         query=result.query,
                         status="skipped",
+                        source_id=result.source_id,
                         error_message="Only successful search results with URLs are read.",
                     )
                 )
@@ -364,6 +472,7 @@ class ContentReader:
                         source_type=result.source_type,
                         query=result.query,
                         status="skipped",
+                        source_id=result.source_id,
                         error_message="Duplicate URL already read.",
                     )
                 )
@@ -377,6 +486,7 @@ class ContentReader:
                         source_type=result.source_type,
                         query=result.query,
                         status="skipped",
+                        source_id=result.source_id,
                         error_message="Read limit reached for this run.",
                     )
                 )

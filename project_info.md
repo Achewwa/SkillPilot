@@ -75,13 +75,80 @@ The project is for a course assignment on large language model agents. The curre
   - Added `PageReader` for ordinary documentation pages.
   - Added `RepoReader` for GitHub repositories, using the GitHub API for repository metadata, README content, and common files such as `SKILL.md`, `.mcp.json`, `package.json`, and `pyproject.toml`.
   - Added `ContentReader` to route search results to the correct reader, deduplicate URLs, preserve skipped/failed reads, and avoid breaking the whole pipeline when one read fails.
-  - Added `CandidateExtractor` to convert retrieved content into the shared `Candidate` model, extracting name, extension type, description, capabilities, installation notes, dependencies, permissions, maintainer, last update, and evidence quotes.
-  - Updated the pipeline to prefer candidates extracted from real search/read content, falling back to the local demo cache only when no real candidates can be extracted.
+  - Added an initial rule-based `CandidateExtractor` to convert retrieved content into the shared `Candidate` model.
+  - Later removed the rule-based `CandidateExtractor` from the main pipeline. The current pipeline sends successful `RetrievedContent` directly to the LLM evaluator, which reads the candidate raw content and returns candidate fields plus capability, documentation, and safety scores in one step.
+  - Updated the pipeline to prefer real search/read content, falling back to the local demo cache only for offline/skipped runs.
   - Updated CLI/report/trace output to include page and repository read status.
 - Verified Stage 2.3/2.4 with `conda run -n skill_pilot python -m pytest`: 12 tests passed.
 - Verified a proxied real-search run for `阅读pdf的插件`; it found and read `https://github.com/ZSHYC/pdf-master`, extracted it as a plugin candidate, and wrote evidence into `outputs/recommendation_report.md`.
 - Changed network search to be enabled by default. Set `SKILLPILOT_ENABLE_NETWORK_SEARCH=0` only when an offline run is needed.
 - Re-verified with `conda run -n skill_pilot python -m pytest`: 13 tests passed.
+- Created feature branch `feature/stage2-evaluation-decision-demo` for Stage 2.5, 2.6, and 2.7 work.
+- Implemented Stage 2.5, 2.6, and 2.7:
+  - Added weighted candidate evaluation with explicit component scores:
+    - capability match: 45%
+    - type match: 15%
+    - documentation quality: 20%
+    - safety risk: 20%
+  - Switched candidate capability, documentation, and safety scoring to LLM-assisted structured JSON evaluation.
+  - Kept type matching as a deterministic rule score.
+  - Added high-risk decision gating: high match candidates with write, command execution, or token/API-key risks are not directly recommended for installation.
+  - Expanded the Chinese recommendation report with component scores, matched/missing capabilities, risk reasons, failed queries/URLs, and safety alternatives.
+  - Adjusted cache fallback so local demo cache is used for offline/skipped runs, while real-search runs with insufficient evidence clearly enter the custom Skill path.
+  - Added focused tests for weighted evaluation, high-risk decisions, no-candidate custom Skill fallback, and report failure handling.
+- Verified Stage 2.5/2.6/2.7 with `conda run -n skill_pilot python -m pytest`: 17 tests passed.
+- Verified a proxied real-search run for `阅读pdf的插件`; it found and read real GitHub results including `https://github.com/ZSHYC/pdf-master`, recorded failed/no-result queries, scored candidates, and chose the safer custom Skill path because the best candidates had high-risk permission or token signals.
+- Fixed an evaluation false positive where guide or marketplace overview pages could be treated as installable plugin candidates.
+  - Candidate capability, dependency, permission, and type extraction no longer uses the search query text as candidate evidence.
+  - Ordinary web guide/list/overview pages such as "Claude Code 插件完全指南" are skipped as non-candidate pages.
+  - Added a regression test for skipping plugin guide pages.
+- Re-verified with `conda run -n skill_pilot python -m pytest`: 18 tests passed.
+- Refined Stage 2.1/2.2 source planning after source research:
+  - Added structured `SearchSource` records and a curated `SourceCatalog`.
+  - Current high-priority Skill sources: `anthropic_skills_repo`, `anthropic_agent_skills_docs`, `anthropic_skills_cookbook`, `skillsmp_directory`.
+  - Current high-priority MCP sources: `official_mcp_registry`, `glama_mcp`, `smithery_mcp`.
+  - Current high-priority Plugin sources: `anthropic_official_plugin_marketplace`, `anthropic_community_plugin_marketplace`, `anthropic_demo_plugin_marketplace`, `ccplugins_awesome_marketplace`.
+  - `SearchPlan.sources` now records source id, kind, trust level, entry URLs, data format, reader type, and searcher type.
+  - `SearchQuery`, `SearchResult`, and `RetrievedContent` can preserve `source_id` for source-level traceability.
+  - CLI and reports now show planned sources in addition to queries/results.
+  - Added `docs/stage_2_3_source_access.md` to guide Stage 2.3 source-specific readers for docs, marketplace JSON, GitHub trees, and MCP registry APIs.
+- Re-verified source catalog planning with `conda run -n skill_pilot python -m pytest`: 18 tests passed.
+- Added SkillsMP as a community Skill directory/API source:
+  - Source id: `skillsmp_directory`.
+  - Web search page: `https://skillsmp.com/search?q={query}`.
+  - API docs: `https://skillsmp.com/docs/api`.
+  - OpenAPI spec: `https://skillsmp.com/openapi.json`.
+  - API endpoint: `https://skillsmp.com/api/v1/skills/search`.
+  - Anonymous API limits documented by SkillsMP: 50 requests/day and 10 requests/min.
+  - Search hits are treated as provisional GitHub-backed Skill discoveries and must be verified by reading the returned GitHub source before recommendation.
+- Disabled the old broad DuckDuckGo-style web search path. Search planning now uses curated `source` queries from `SourceCatalog`; unsupported source-specific readers/searchers are recorded as skipped instead of falling back to generic web search.
+- Re-verified with `conda run -n skill_pilot python -m pytest`: 19 tests passed.
+- Verified a proxied source-specific Skill run for `阅读pdf的skill`; `skillsmp_directory` returned GitHub-backed Skill results, the pipeline read 3 successful repositories, and the run produced `recommend_existing`.
+- Replaced keyword-rule requirement capability extraction with LLM structured extraction:
+  - `RequirementParser` now calls the configured LLM and expects strict JSON for `task_domain`, `desired_capabilities`, operational booleans, and `risk_tolerance`.
+  - The parser no longer uses keyword rules such as `pdf -> pdf_reading`; capabilities come from LLM output.
+  - If the LLM is unavailable or returns invalid JSON, parsing falls back to a generic safe requirement with `general_guidance`, not rule-derived capabilities.
+  - `SkillPilotPipeline` now injects the shared LLM adapter into `RequirementParser`.
+  - Added `static_json` LLM provider for offline CLI smoke tests and deterministic test runs.
+- Re-verified LLM parser changes with `conda run -n skill_pilot python -m pytest`: 22 tests passed.
+- Re-read `docs/stage_2_3_source_access.md` and synchronized the Stage 2.1/2.2 understanding:
+  - Source planning is now based on curated source pools rather than broad web/GitHub search pools.
+  - Search execution now groups queries by `source_id`, dispatches one lightweight `SourceSearchAgent` per source, runs source agents concurrently, and aggregates results back in planned source order.
+  - Source-agent results preserve `source_id` and `search_agent` metadata for traceability.
+- Re-verified with `conda run -n skill_pilot python -m pytest`: 20 tests passed.
+- Removed the rule-based `CandidateExtractor` from the main implementation:
+  - Successful `RetrievedContent` now goes directly into `CandidateEvaluator`.
+  - The LLM reads the retrieved raw content and returns candidate fields plus capability, documentation, safety, risk, and reason fields in one structured response.
+  - The CLI now prints only the top recommendation summary; the full search/read/evaluation detail remains in `outputs/recommendation_report.md`.
+  - `ClaudeCliLLM` now sends prompts through stdin and only passes a budget argument when `SKILLPILOT_CLAUDE_MAX_BUDGET_USD` is explicitly set.
+- Re-verified with `conda run -n skill_pilot python -m pytest`: 25 tests passed.
+- Verified a proxied real run for `制作海报的skill`; LLM direct raw-content scoring selected `canvas-design` and produced `recommend_existing`.
+- Re-read project documentation after source-planning changes and refined Stage 2.5 scoring:
+  - Candidate scoring no longer includes a trust/maintenance component because discovery now uses fixed curated sources.
+  - LLM structured evaluation now scores capability match, documentation quality, and safety risk.
+  - Type match remains a deterministic rule score because it is a direct comparison between classified target type and candidate type.
+  - New scoring weights: capability 45%, type 15%, documentation 20%, safety 20%.
+  - `SKILLPILOT_ENABLE_LLM_EVALUATION=0` can disable LLM scoring for deterministic tests; normal runtime defaults to enabled.
 
 ## Current Stage 2.1 / 2.2 Runtime Output Format
 
@@ -89,10 +156,12 @@ When running a recommendation command, the CLI now prints the final decision plu
 
 ```text
 Decision: <decision_type>
+Planned sources: <count>
+  - <source_id> (<source_kind>, <trust_level>)
 Search queries: <count>
-  1. [github|web] <query text>
+  1. [source source=<source_id>] <query text>
 Search results: <count>
-  - [github|web/success|no_results|failed|skipped] <title or query>
+  - [source|github/<source_id>/success|no_results|failed|skipped] <title or query>
     <url or error message>
 Report: outputs/recommendation_report.md
 Trace: outputs/decision_trace.json
@@ -133,9 +202,8 @@ conda run -n skill_pilot python main.py recommend "阅读pdf的插件"
 
 - Replace placeholder requirement parsing with LLM-assisted structured extraction.
 - Replace keyword-based Skill / Plugin / MCP classification with a stronger rule + LLM hybrid classifier.
-- Implement production-quality capability matching and scoring.
-- Implement richer trust evaluation.
-- Implement richer risk analysis.
+- Further improve LLM scoring prompts and output validation for capability, documentation, and safety evaluation.
+- Further improve risk analysis by separating read-only local file access from write, token, command execution, and network risks more precisely.
 - Add broader tests beyond smoke coverage.
 - Prepare demo cases, recorded real-search runs, and stable screenshots/video for classroom presentation.
 - Prepare classroom PPT.
@@ -175,22 +243,22 @@ Stage 2 should be split into small, testable steps. The goal is to replace the s
 - Prefer structured GitHub API responses where possible, and fall back to raw README content when needed.
 - Record failed reads without dropping the whole pipeline.
 
-### 2.4 Candidate Extraction
+### 2.4 Candidate Understanding
 
-- Implement `CandidateExtractor` to convert search results and retrieved content into the shared `Candidate` model.
-- Extract name, extension type, description, capabilities, installation notes, dependencies, permissions, maintainer signals, and evidence quotes.
-- Detect evidence from README / `SKILL.md` / docs instead of relying only on search snippets.
-- Keep extraction conservative: unknown fields should stay unknown rather than being guessed.
+- Do not use a separate rule-based `CandidateExtractor` as the main path.
+- Send successful retrieved content, especially `SKILL.md` and README text, directly to the LLM evaluator.
+- Let the LLM return both candidate fields and scoring fields in one structured JSON response.
+- Keep local fallback scoring only for offline tests or LLM failures.
 
 ### 2.5 Evaluation and Ranking
 
-- Upgrade `CapabilityMatcher`, `TrustEvaluator`, and `RiskAnalyzer`.
-- Use a simple weighted score for the MVP:
-  - capability match: 40%
+- Use LLM-assisted structured evaluation for candidate quality and safety.
+- Keep type matching as a deterministic score.
+- Use a weighted score for the MVP:
+  - capability match: 45%
   - type match: 15%
-  - documentation quality: 15%
-  - maintenance / trust signals: 15%
-  - safety risk: 15%
+  - documentation quality: 20%
+  - safety risk: 20%
 - Rank candidates and keep both numeric scores and natural-language reasons.
 
 ### 2.6 Decision and Report Generation
@@ -200,7 +268,7 @@ Stage 2 should be split into small, testable steps. The goal is to replace the s
   - medium match -> recommend existing resource plus custom Skill supplement
   - low match -> build custom Skill draft
   - high risk -> avoid direct installation recommendation and provide safer alternatives
-- Generate a Chinese recommendation report with search queries, candidate evidence, scores, missing capabilities, trust signals, risks, and final decision.
+- Generate a Chinese recommendation report with search queries, candidate evidence, scores, missing capabilities, risks, and final decision.
 - Save a complete `decision_trace.json` for reproducibility.
 
 ### 2.7 Failure Handling and Demo Recording

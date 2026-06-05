@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from skillpilot.config import SearchConfig
-from skillpilot.models import RetrievedContent, SearchResult, TypeClassification
-from skillpilot.modules.candidate_extractor import CandidateExtractor
+from skillpilot.models import SearchResult
 from skillpilot.modules.readers import ContentReader, RepoReader
 
 
@@ -18,6 +17,68 @@ def test_repo_reader_parses_github_repository_urls() -> None:
         "repo",
     )
     assert reader.parse_github_repo("https://example.com/owner/repo") is None
+
+
+def test_repo_reader_reads_skill_md_from_github_tree_url(monkeypatch) -> None:
+    reader = RepoReader()
+
+    def fake_raw_file(_client, owner: str, repo: str, ref: str, path: str) -> str:
+        assert (owner, repo, ref) == ("owner", "repo", "main")
+        if path == "skills/poster/SKILL.md":
+            return "# Poster Skill\nUse this skill to design posters and visual layouts."
+        if path == "skills/poster/README.md":
+            return "Poster design examples."
+        return ""
+
+    monkeypatch.setattr(reader, "_get_raw_github_file", fake_raw_file)
+    result = SearchResult(
+        title="poster",
+        url="https://github.com/owner/repo/tree/main/skills/poster",
+        snippet="Poster design skill.",
+        source_type="github",
+        query="poster design",
+        status="success",
+        source_id="skillsmp_directory",
+        metadata={
+            "author": "owner",
+            "stars": 12,
+            "updated_at": "2026-06-05T00:00:00Z",
+            "skillsmp_url": "https://skillsmp.com/skills/poster",
+        },
+    )
+
+    content = reader.read(result)
+
+    assert content.status == "success"
+    assert "Poster Skill" in content.content
+    assert content.metadata["source_subpath"] == "skills/poster"
+    assert content.metadata["common_files"] == ["SKILL.md"]
+    assert content.metadata["last_updated"] == "2026-06-05T00:00:00Z"
+
+
+def test_skillsmp_tree_result_requires_skill_md(monkeypatch) -> None:
+    reader = RepoReader()
+
+    def fake_raw_file(_client, _owner: str, _repo: str, _ref: str, path: str) -> str:
+        if path.endswith("README.md"):
+            return "Template examples but no Skill manifest."
+        return ""
+
+    monkeypatch.setattr(reader, "_get_raw_github_file", fake_raw_file)
+    result = SearchResult(
+        title="templates",
+        url="https://github.com/owner/repo/tree/main/templates",
+        snippet="Template examples.",
+        source_type="github",
+        query="poster design",
+        status="success",
+        source_id="skillsmp_directory",
+    )
+
+    content = reader.read(result)
+
+    assert content.status == "failed"
+    assert "No SKILL.md" in (content.error_message or "")
 
 
 def test_content_reader_records_skipped_search_results() -> None:
@@ -40,52 +101,3 @@ def test_content_reader_records_skipped_search_results() -> None:
     assert "successful search results" in (contents[0].error_message or "")
 
 
-def test_candidate_extractor_uses_retrieved_repo_content() -> None:
-    search_result = SearchResult(
-        title="owner/pdf-mcp",
-        url="https://github.com/owner/pdf-mcp",
-        snippet="An MCP server for PDF document reading.",
-        source_type="github",
-        query="PDF reading MCP server GitHub",
-        status="success",
-    )
-    retrieved = RetrievedContent(
-        title="owner/pdf-mcp",
-        url="https://github.com/owner/pdf-mcp",
-        source_type="github",
-        query=search_result.query,
-        status="success",
-        content=(
-            "# owner/pdf-mcp\n"
-            "A Model Context Protocol server that lets Claude read PDF documents.\n"
-            "## Installation\n"
-            "Run npm install and configure a GitHub token only if repository access is needed.\n"
-            "The server extracts text from PDF files for document parsing workflows."
-        ),
-        metadata={
-            "full_name": "owner/pdf-mcp",
-            "description": "MCP server for PDF document reading.",
-            "last_updated": "2026-06-05T00:00:00Z",
-            "common_files": ["package.json"],
-        },
-    )
-    classification = TypeClassification(
-        recommended_type="mcp",
-        confidence=0.78,
-        reason="需求适合 MCP。",
-    )
-
-    candidates = CandidateExtractor().extract([search_result], [retrieved], classification)
-
-    assert len(candidates) == 1
-    candidate = candidates[0]
-    assert candidate.name == "owner/pdf-mcp"
-    assert candidate.extension_type == "mcp"
-    assert "pdf_reading" in candidate.capabilities
-    assert "document_parsing" in candidate.capabilities
-    assert candidate.installation is not None
-    assert "node" in candidate.dependencies
-    assert "read_documents" in candidate.permissions
-    assert candidate.maintainer == "owner"
-    assert candidate.last_updated == "2026-06-05T00:00:00Z"
-    assert candidate.evidence

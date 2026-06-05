@@ -12,9 +12,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 class LLMConfig:
     provider: str = "claude_cli"
     claude_command: str = "claude"
-    max_budget_usd: float = 0.05
+    max_budget_usd: float | None = None
     disable_tools: bool = True
     no_session_persistence: bool = True
+    enable_evaluation: bool = True
 
 
 @dataclass(frozen=True)
@@ -39,12 +40,14 @@ class AppConfig:
 
 def load_config() -> AppConfig:
     """Load runtime configuration without duplicating secrets or endpoint settings."""
+    max_budget = os.getenv("SKILLPILOT_CLAUDE_MAX_BUDGET_USD")
     llm = LLMConfig(
         provider=os.getenv("SKILLPILOT_LLM_PROVIDER", "claude_cli"),
         claude_command=os.getenv("SKILLPILOT_CLAUDE_COMMAND", "claude"),
-        max_budget_usd=float(os.getenv("SKILLPILOT_CLAUDE_MAX_BUDGET_USD", "0.05")),
+        max_budget_usd=float(max_budget) if max_budget else None,
         disable_tools=os.getenv("SKILLPILOT_CLAUDE_DISABLE_TOOLS", "1") != "0",
         no_session_persistence=os.getenv("SKILLPILOT_CLAUDE_NO_SESSION", "1") != "0",
+        enable_evaluation=os.getenv("SKILLPILOT_ENABLE_LLM_EVALUATION", "1") != "0",
     )
     search = SearchConfig(
         enable_network_search=os.getenv("SKILLPILOT_ENABLE_NETWORK_SEARCH", "1") == "1",

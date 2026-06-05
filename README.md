@@ -1,6 +1,6 @@
 # SkillPilot
 
-SkillPilot 是一个面向 Claude 扩展生态的轻量级 Python 智能体项目。它的目标是根据用户的自然语言需求，判断用户更适合使用 Claude Skill、Claude Code Plugin、MCP Server，还是组合方案；随后检索或读取候选资源，对功能匹配度、可信度和安全风险进行评估，并输出推荐报告。如果没有合适的现成资源，系统可以辅助生成一个自定义 Skill 草案。
+SkillPilot 是一个面向 Claude 扩展生态的轻量级 Python 智能体项目。它的目标是根据用户的自然语言需求，判断用户更适合使用 Claude Skill、Claude Code Plugin、MCP Server，还是组合方案；随后从固定数据源中检索或读取候选资源，对功能匹配度、文档证据和安全风险进行评估，并输出推荐报告。如果没有合适的现成资源，系统可以辅助生成一个自定义 Skill 草案。
 
 本项目用于《大语言模型与信息决策》课程项目。实现方向是使用 Python 自行构建智能体工作流，而不是依赖 LangChain、CrewAI、AutoGPT 等成熟智能体框架。
 
@@ -10,7 +10,7 @@ Claude 的扩展生态中包含 Skill、Plugin、MCP 等多种能力扩展形式
 
 - 不清楚 Skill、Plugin、MCP 分别适合什么场景。
 - 不知道应该从官方文档、GitHub、社区目录还是其他来源查找资源。
-- 难以判断第三方资源是否维护良好、是否可信。
+- 难以判断候选资源的文档证据是否足以支撑推荐。
 - 难以识别插件、MCP 或脚本可能带来的文件读写、命令执行、token 暴露、数据库访问等安全风险。
 - 当没有现成资源完全符合需求时，不知道如何构造一个可用的自定义 Skill。
 
@@ -25,7 +25,7 @@ SkillPilot 的首版目标包括：
 - 基于扩展类型规划搜索源。
 - 从缓存、文档、GitHub 仓库或社区资源中读取候选资源。
 - 抽取候选资源的功能、安装方式、依赖、维护状态、权限和风险信息。
-- 根据功能匹配、可信度和安全风险对候选资源排序。
+- 根据功能匹配、文档证据和安全风险对候选资源排序。
 - 输出中文推荐报告，说明推荐理由、缺失能力、风险提示和使用建议。
 - 当现有候选不合适时，生成自定义 Skill 草案。
 - 保存决策轨迹，便于复现和课堂展示。
@@ -41,10 +41,7 @@ SkillPilot 的首版目标包括：
   -> SourcePlanner：搜索源规划
   -> SearchTools / 本地缓存：候选检索
   -> PageReader / RepoReader：页面或仓库读取
-  -> CandidateExtractor：候选信息抽取
-  -> CapabilityMatcher：能力匹配评分
-  -> TrustEvaluator：可信度评估
-  -> RiskAnalyzer：安全风险分析
+  -> LLM Evaluator：直接阅读候选原文并输出候选信息、能力、文档和安全评分
   -> DecisionGate：推荐或构造决策
   -> RecommendationWriter / SkillBuilder：输出报告或 Skill 草案
 ```
@@ -83,7 +80,7 @@ generated_skills/<skill-name>/examples/
 - 候选排序与评分
 - 功能匹配说明
 - 缺失能力说明
-- 可信度与安全风险分析
+- 文档证据与安全风险分析
 - 使用建议或替代方案
 
 ## 安全原则
@@ -145,7 +142,7 @@ OK
 ```bash
 export SKILLPILOT_LLM_PROVIDER=claude_cli
 export SKILLPILOT_CLAUDE_COMMAND=claude
-export SKILLPILOT_CLAUDE_MAX_BUDGET_USD=0.05
+export SKILLPILOT_ENABLE_LLM_EVALUATION=1
 ```
 
 ## 网络搜索配置

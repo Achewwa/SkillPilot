@@ -8,7 +8,21 @@ from pydantic import BaseModel, Field
 
 ExtensionType = Literal["skill", "mcp", "plugin", "mixed", "unknown"]
 RiskLevel = Literal["low", "medium", "high"]
-SearchSourceType = Literal["web", "github"]
+SearchSourceType = Literal["source", "web", "github"]
+SearchSourceKind = Literal[
+    "official_docs",
+    "official_registry_api",
+    "community_registry_api",
+    "community_skill_directory_api",
+    "commercial_hosted_registry_api",
+    "official_github_marketplace_repo",
+    "community_github_marketplace_repo",
+    "official_example_repo",
+    "community_awesome_list",
+    "web_directory",
+    "github_search",
+]
+SourceTrustLevel = Literal["official", "partner", "community", "commercial", "discovery"]
 SearchStatus = Literal["success", "no_results", "failed", "skipped"]
 ReadStatus = Literal["success", "failed", "skipped"]
 DecisionType = Literal[
@@ -34,11 +48,27 @@ class TypeClassification(BaseModel):
     reason: str
 
 
+class SearchSource(BaseModel):
+    source_id: str
+    name: str
+    extension_types: list[ExtensionType]
+    source_kind: SearchSourceKind
+    trust_level: SourceTrustLevel
+    reader_type: str
+    searcher_type: str
+    base_url: str
+    index_url: str | None = None
+    api_url: str | None = None
+    data_format: str
+    notes: str = ""
+
+
 class SearchQuery(BaseModel):
     text: str
     source_type: SearchSourceType
     extension_type: ExtensionType
     purpose: str
+    source_id: str | None = None
     max_results: int = 5
 
 
@@ -49,6 +79,7 @@ class SearchResult(BaseModel):
     source_type: SearchSourceType
     query: str
     status: SearchStatus
+    source_id: str | None = None
     error_message: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -59,6 +90,7 @@ class RetrievedContent(BaseModel):
     source_type: SearchSourceType
     query: str
     status: ReadStatus
+    source_id: str | None = None
     content: str = ""
     error_message: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -66,7 +98,7 @@ class RetrievedContent(BaseModel):
 
 class SearchPlan(BaseModel):
     extension_type: ExtensionType
-    sources: list[str]
+    sources: list[SearchSource]
     queries: list[SearchQuery]
 
 
@@ -87,9 +119,12 @@ class Candidate(BaseModel):
 class CandidateEvaluation(BaseModel):
     candidate: Candidate
     match_score: float
+    capability_score: float = 0.0
+    type_score: float = 0.0
+    documentation_score: float = 0.0
+    safety_score: float = 0.0
     matched_capabilities: list[str] = Field(default_factory=list)
     missing_capabilities: list[str] = Field(default_factory=list)
-    trust_level: str = "medium"
     risk_level: RiskLevel = "low"
     risk_reasons: list[str] = Field(default_factory=list)
     reason: str

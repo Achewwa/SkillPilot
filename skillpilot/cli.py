@@ -30,21 +30,19 @@ def _agent() -> SkillPilotAgent:
 
 def _print_result(result) -> None:
     console.print(f"[bold]Decision:[/bold] {result.decision.decision_type}")
-    console.print(f"[bold]Search queries:[/bold] {len(result.search_plan.queries)}")
-    for index, query in enumerate(result.search_plan.queries, start=1):
-        console.print(f"  {index}. [{query.source_type}] {query.text}", markup=False)
-    if result.search_results:
-        console.print(f"[bold]Search results:[/bold] {len(result.search_results)}")
-        for item in result.search_results[:10]:
-            label = f"[{item.source_type}/{item.status}]"
-            target = item.title or item.query
-            console.print(f"  - {label} {target}", markup=False)
-            if item.url:
-                console.print(f"    {item.url}", markup=False)
-            elif item.error_message:
-                console.print(f"    {item.error_message}", markup=False)
-        if len(result.search_results) > 10:
-            console.print(f"  ... {len(result.search_results) - 10} more results in trace")
+    if result.decision.selected_candidates:
+        evaluation = result.decision.selected_candidates[0]
+        candidate = evaluation.candidate
+        console.print(f"[bold]Top candidate:[/bold] {candidate.name}")
+        console.print(f"  Score: {evaluation.match_score}", markup=False)
+        console.print(f"  Type: {candidate.extension_type}", markup=False)
+        console.print(f"  Risk: {evaluation.risk_level}", markup=False)
+        console.print(f"  Description: {candidate.description}", markup=False)
+        console.print(f"  Source: {candidate.source_url}", markup=False)
+        console.print(f"  Reason: {evaluation.reason}", markup=False)
+    else:
+        console.print("[bold]Top candidate:[/bold] none")
+        console.print(f"  Reason: {result.decision.reason}", markup=False)
     if result.retrieved_contents:
         successful_reads = sum(1 for item in result.retrieved_contents if item.status == "success")
         console.print(

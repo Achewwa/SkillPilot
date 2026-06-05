@@ -60,14 +60,68 @@ The project is for a course assignment on large language model agents. The curre
 - Added a base LLM adapter that defaults to the WSL-local `claude` CLI, reusing the existing Claude Code configuration instead of hardcoding secrets or endpoints.
 - Added smoke tests for CLI help, recommendation output, Skill draft generation, and demo cases.
 - Added an interactive CLI session: running `python main.py` now accepts natural language directly, with `/build`, `/demo`, `/help`, and `/exit` shortcuts.
-- Verified `conda run -n skill_pilot python -m pytest` passes with 5 tests.
+- Verified `conda run -n skill_pilot python -m pytest` passes with 9 tests.
 - Verified the skeleton commands can generate `outputs/recommendation_report.md`, `outputs/decision_trace.json`, and `generated_skills/homework-knowledge-hint/`.
+- Implemented Stage 2.1 and 2.2:
+  - Added unified `SearchQuery` and `SearchResult` models.
+  - Added `WebSearchTool`, `GitHubSearchTool`, and an environment-gated `SearchExecutor`.
+  - Added explicit proxy support through `SKILLPILOT_HTTP_PROXY` / `SKILLPILOT_HTTPS_PROXY`.
+  - Upgraded `SourcePlanner` to generate 3 to 5 targeted web/GitHub queries for Skill, MCP, Plugin, mixed, and unknown needs.
+  - Search plans and search execution statuses are now saved in `outputs/decision_trace.json`, shown in the recommendation report, and summarized in CLI output.
+  - Verified proxied network search for `阅读pdf的插件`, finding real web results such as `ZSHYC/pdf-master`.
+
+## Current Stage 2.1 / 2.2 Runtime Output Format
+
+When running a recommendation command, the CLI now prints the final decision plus the search-stage intermediate results:
+
+```text
+Decision: <decision_type>
+Search queries: <count>
+  1. [github|web] <query text>
+Search results: <count>
+  - [github|web/success|no_results|failed|skipped] <title or query>
+    <url or error message>
+Report: outputs/recommendation_report.md
+Trace: outputs/decision_trace.json
+Skill draft: generated_skills/<skill-name>
+```
+
+`outputs/recommendation_report.md` now includes:
+
+- 用户需求理解
+- 扩展类型判断
+- 搜索计划
+- 搜索结果
+- 候选资源与评分
+- 决策结果
+- 安全提示
+
+`outputs/decision_trace.json` now includes structured `search_plan.queries` and `search_results` entries. Each search result preserves title, URL, snippet, source type, original query, status, error message, and metadata when available.
+
+Network search is controlled by environment variables:
+
+```bash
+SKILLPILOT_ENABLE_NETWORK_SEARCH=1
+SKILLPILOT_HTTP_PROXY=http://172.22.0.1:7890
+SKILLPILOT_SEARCH_TIMEOUT_SECONDS=8
+SKILLPILOT_SEARCH_MAX_RESULTS=3
+```
+
+Example tested command:
+
+```bash
+SKILLPILOT_ENABLE_NETWORK_SEARCH=1 \
+SKILLPILOT_HTTP_PROXY=http://172.22.0.1:7890 \
+SKILLPILOT_SEARCH_TIMEOUT_SECONDS=8 \
+SKILLPILOT_SEARCH_MAX_RESULTS=3 \
+conda run -n skill_pilot python main.py recommend "阅读pdf的插件"
+```
 
 ## Not Started
 
 - Replace placeholder requirement parsing with LLM-assisted structured extraction.
 - Replace keyword-based Skill / Plugin / MCP classification with a stronger rule + LLM hybrid classifier.
-- Implement real web and GitHub candidate search.
+- Wire real web and GitHub search results into candidate extraction and ranking as the main path.
 - Implement robust candidate extraction from README / SKILL.md / docs.
 - Implement production-quality capability matching and scoring.
 - Implement richer trust evaluation.

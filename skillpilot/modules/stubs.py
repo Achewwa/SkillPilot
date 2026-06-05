@@ -9,6 +9,7 @@ from skillpilot.models import (
     Decision,
     ParsedRequirement,
     SearchPlan,
+    SearchQuery,
     TypeClassification,
 )
 
@@ -26,6 +27,8 @@ class RequirementParser:
             capabilities.extend(["writing_review", "citation_check"])
         if "课件" in text or "作业" in text or "知识点" in text:
             capabilities.extend(["knowledge_hint", "answer_guardrail"])
+        if "pdf" in lower or "文档" in text or "文件" in text:
+            capabilities.extend(["pdf_reading", "document_parsing"])
 
         return ParsedRequirement(
             raw_text=text,
@@ -39,6 +42,8 @@ class RequirementParser:
     def _infer_domain(self, text: str) -> str:
         if "测试" in text or "代码" in text or "github" in text.lower():
             return "software_engineering"
+        if "pdf" in text.lower() or "文档" in text or "文件" in text:
+            return "document_processing"
         if "论文" in text or "引用" in text:
             return "academic_writing"
         if "课件" in text or "作业" in text:
@@ -49,6 +54,12 @@ class RequirementParser:
 class ExtensionTypeClassifier:
     def classify(self, requirement: ParsedRequirement) -> TypeClassification:
         text = requirement.raw_text.lower()
+        if "插件" in requirement.raw_text or "plugin" in text:
+            return TypeClassification(
+                recommended_type="plugin",
+                confidence=0.74,
+                reason="用户明确提到插件，优先规划 Claude Code Plugin 方向，同时保留后续安全评估。",
+            )
         if requirement.requires_external_service:
             return TypeClassification(
                 recommended_type="mcp",
@@ -70,18 +81,107 @@ class ExtensionTypeClassifier:
 
 class SourcePlanner:
     def plan(self, requirement: ParsedRequirement, classification: TypeClassification) -> SearchPlan:
-        source_map = {
-            "skill": ["local_skill_cache", "anthropic_skill_docs", "github_skill_examples"],
-            "mcp": ["local_mcp_cache", "mcp_server_directory", "github_mcp_repos"],
-            "plugin": ["local_plugin_cache", "claude_code_plugin_docs", "github_plugin_repos"],
-            "mixed": ["local_cache", "official_docs", "github"],
-            "unknown": ["local_cache"],
-        }
+        queries = self._build_queries(requirement, classification)
+        source_names = []
+        if any(query.source_type == "web" for query in queries):
+            source_names.append("web_search")
+        if any(query.source_type == "github" for query in queries):
+            source_names.append("github_repository_search")
         return SearchPlan(
             extension_type=classification.recommended_type,
-            sources=source_map[classification.recommended_type],
-            queries=[requirement.raw_text],
+            sources=source_names,
+            queries=queries,
         )
+
+    def _build_queries(
+        self,
+        requirement: ParsedRequirement,
+        classification: TypeClassification,
+    ) -> list[SearchQuery]:
+        extension_type = classification.recommended_type
+        capability_text = self._capability_terms(requirement)
+        raw_text = requirement.raw_text.strip()
+
+        if extension_type == "skill":
+            patterns = [
+                ("github", f'{capability_text} Claude Skill SKILL.md', "Find Skill repositories with SKILL.md evidence."),
+                ("web", f'{capability_text} "Claude Skill"', "Find Claude Skill documentation or examples."),
+                ("github", f'{capability_text} "SKILL.md" GitHub', "Find GitHub examples that expose a Skill manifest."),
+                ("web", f"{raw_text} Claude Skill", "Search the original requirement against Claude Skill terms."),
+            ]
+        elif extension_type == "mcp":
+            patterns = [
+                ("github", f"{capability_text} MCP server GitHub", "Find MCP server repositories."),
+                ("web", f'{capability_text} "Model Context Protocol" server', "Find MCP documentation and directories."),
+                ("github", f'{capability_text} "mcp server"', "Find repositories using common MCP wording."),
+                ("web", f"{raw_text} Claude MCP server", "Search the original requirement against MCP terms."),
+            ]
+        elif extension_type == "plugin":
+            patterns = [
+                ("github", f"{capability_text} Claude Code plugin GitHub", "Find Claude Code plugin repositories."),
+                ("web", f'{capability_text} "Claude Code plugin"', "Find plugin documentation or examples."),
+                ("github", f'{capability_text} "claude-code" plugin', "Find repositories using Claude Code plugin naming."),
+                ("web", f"{raw_text} Claude Code plugin", "Search the original requirement against plugin terms."),
+            ]
+        elif extension_type == "mixed":
+            patterns = [
+                ("github", f"{capability_text} Claude Skill SKILL.md", "Find Skill options for the mixed plan."),
+                ("github", f"{capability_text} MCP server GitHub", "Find MCP options for the mixed plan."),
+                ("github", f"{capability_text} Claude Code plugin GitHub", "Find plugin options for the mixed plan."),
+                ("web", f'{capability_text} "Claude Skill" "MCP server"', "Find comparison or combined approaches."),
+                ("web", f"{raw_text} Claude extension GitHub", "Search the original requirement broadly."),
+            ]
+        else:
+            patterns = [
+                ("web", f"{raw_text} Claude Skill MCP server Plugin", "Explore extension type candidates."),
+                ("github", f"{capability_text} Claude extension GitHub", "Find repositories for unknown extension type."),
+                ("web", f'{capability_text} "SKILL.md" "MCP server"', "Find Claude ecosystem evidence."),
+            ]
+
+        return self._dedupe_queries(patterns, extension_type)
+
+    def _capability_terms(self, requirement: ParsedRequirement) -> str:
+        capability_labels = {
+            "generate_tests": "Python unit test generation",
+            "analyze_test_failures": "test failure analysis",
+            "github_issue_read": "GitHub issue reader",
+            "codebase_access": "codebase access",
+            "writing_review": "academic writing review",
+            "citation_check": "citation check",
+            "knowledge_hint": "homework knowledge hint",
+            "answer_guardrail": "avoid direct answers",
+            "pdf_reading": "PDF reading",
+            "document_parsing": "document parsing",
+            "general_guidance": "general assistant guidance",
+        }
+        terms = [
+            capability_labels.get(capability, capability.replace("_", " "))
+            for capability in requirement.desired_capabilities
+        ]
+        if not terms:
+            terms.append(requirement.task_domain.replace("_", " "))
+        return " ".join(terms[:3])
+
+    def _dedupe_queries(self, patterns: list[tuple[str, str, str]], extension_type: str) -> list[SearchQuery]:
+        queries: list[SearchQuery] = []
+        seen: set[tuple[str, str]] = set()
+        for source_type, text, purpose in patterns:
+            normalized = " ".join(text.split())
+            key = (source_type, normalized.lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            queries.append(
+                SearchQuery(
+                    text=normalized,
+                    source_type=source_type,  # type: ignore[arg-type]
+                    extension_type=extension_type,  # type: ignore[arg-type]
+                    purpose=purpose,
+                )
+            )
+            if len(queries) >= 5:
+                break
+        return queries
 
 
 class LocalCandidateCache:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,9 @@ from skillpilot.models import (
 )
 
 
+TraceObserver = Callable[[AgentSkillTraceEvent], None]
+
+
 @dataclass
 class PipelineContext:
     requirement_text: str
@@ -32,6 +36,7 @@ class PipelineContext:
     report_path: Path | None = None
     trace_path: Path | None = None
     trace_events: list[AgentSkillTraceEvent] = field(default_factory=list)
+    trace_observer: TraceObserver | None = None
 
     def require_requirement(self) -> ParsedRequirement:
         if self.requirement is None:
@@ -62,12 +67,13 @@ class PipelineContext:
         summary: str = "",
         metadata: dict[str, Any] | None = None,
     ) -> None:
-        self.trace_events.append(
-            AgentSkillTraceEvent(
-                agent=agent,
-                skill=skill,
-                status=status,  # type: ignore[arg-type]
-                summary=summary,
-                metadata=metadata or {},
-            )
+        event = AgentSkillTraceEvent(
+            agent=agent,
+            skill=skill,
+            status=status,  # type: ignore[arg-type]
+            summary=summary,
+            metadata=metadata or {},
         )
+        self.trace_events.append(event)
+        if self.trace_observer is not None:
+            self.trace_observer(event)

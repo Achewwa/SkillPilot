@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SkillPilot Web UI</title>
+    <link rel="stylesheet" href="/assets/app.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-button" id="new-button" type="button">New</button>
+        <button class="menu-button" id="env-button" type="button" aria-expanded="false">Env</button>
+      </div>
+      <div class="brand">SkillPilot</div>
+      <div class="topbar-right">
+        <span class="status-pill" id="job-status">Idle</span>
+      </div>
+    </header>
+
+    <aside class="env-popover card" id="env-popover" hidden>
+      <div class="env-grid" id="env-grid"></div>
+    </aside>
+
+    <main class="app-shell" id="app-shell">
+      <section class="left-pane">
+        <div class="left-scroll" id="left-scroll">
+          <div class="workflow-log" id="workflow-log"></div>
+          <div class="summary-slot" id="summary"></div>
+        </div>
+
+        <form class="composer card elevated" id="run-form">
+          <div class="builder-options" id="builder-options" hidden></div>
+          <textarea
+            id="requirement"
+            name="requirement"
+            placeholder="输入需求，或点击下方 demo..."
+            required
+          ></textarea>
+          <div class="composer-footer">
+            <div class="demo-row" id="demo-row" aria-label="演示案例"></div>
+            <div class="composer-actions">
+              <select class="mode-select" id="mode-select" aria-label="运行模式">
+                <option value="recommend">推荐扩展方案</option>
+                <option value="build">直接构造 Skill</option>
+              </select>
+              <button class="btn-primary" id="clear-button" type="button">Clear</button>
+              <button class="btn-dark" id="run-button" type="submit">Run</button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section class="right-pane" id="right-pane" aria-hidden="true">
+        <div class="right-scroll" id="candidate-scroll">
+          <div class="candidate-grid" id="candidates-panel"></div>
+        </div>
+
+        <article class="report-box card" id="report-box">
+          <div class="report-bar">
+            <span>SkillPilot运行报告</span>
+            <button class="icon-button" id="report-toggle" type="button" aria-label="放大报告">⛶</button>
+          </div>
+          <div class="report-content" id="report-content"></div>
+        </article>
+      </section>
+    </main>
+
+    <div class="candidate-modal" id="candidate-modal" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <article class="modal-card card" id="candidate-modal-card"></article>
+    </div>
+    <div class="toast" id="toast" hidden></div>
+    <script src="/assets/app.js"></script>
+  </body>
+</html>

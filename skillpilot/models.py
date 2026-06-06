@@ -226,7 +226,7 @@ class SkillDraftResult(BaseModel):
 class AgentRunResult(BaseModel):
     requirement: ParsedRequirement
     classification: TypeClassification
-    search_plan: SearchPlan
+    search_plan: SearchPlan | None = None
     search_results: list[SearchResult] = Field(default_factory=list)
     retrieved_contents: list[RetrievedContent] = Field(default_factory=list)
     evaluations: list[CandidateEvaluation]

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from skillpilot.agents.core import PipelineContext
+from skillpilot.agents.core import PipelineContext, TraceObserver
 from skillpilot.agents.builder import AnswerProvider, SkillBuilderAgent
 from skillpilot.agents.decision import DecisionAgent
 from skillpilot.agents.discovery import SourceDiscoveryAgent
@@ -67,12 +67,14 @@ class SkillPilotPipeline:
         interactive_builder: bool = False,
         answer_provider: AnswerProvider | None = None,
         decision_observer: DecisionObserver | None = None,
+        trace_observer: TraceObserver | None = None,
     ) -> AgentRunResult:
         context = PipelineContext(
             requirement_text=requirement_text,
             force_build_skill=force_build_skill,
+            trace_observer=trace_observer,
         )
-        self.requirement_agent.run(context)
+        self.requirement_agent.run(context, plan_search=not force_build_skill)
         if not force_build_skill:
             self.discovery_agent.run(context)
             self.evaluation_agent.run(context)
@@ -116,7 +118,7 @@ class SkillPilotPipeline:
         result = AgentRunResult(
             requirement=context.require_requirement(),
             classification=context.require_classification(),
-            search_plan=context.require_search_plan(),
+            search_plan=context.search_plan,
             search_results=context.search_results,
             retrieved_contents=context.retrieved_contents,
             evaluations=context.evaluations,

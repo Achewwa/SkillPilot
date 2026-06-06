@@ -17,7 +17,7 @@ class RequirementAnalysisAgent:
         self.classifier = classifier
         self.planner = planner
 
-    def run(self, context: PipelineContext) -> None:
+    def run(self, context: PipelineContext, *, plan_search: bool = True) -> None:
         context.requirement = self.parser.parse(context.requirement_text)
         context.record(
             "RequirementAnalysisAgent",
@@ -36,6 +36,15 @@ class RequirementAnalysisAgent:
                 "reason": context.classification.reason,
             },
         )
+
+        if not plan_search:
+            context.record(
+                "RequirementAnalysisAgent",
+                "QueryPlanningSkill",
+                status="skipped",
+                summary="Skipped search planning because custom Skill build was requested directly.",
+            )
+            return
 
         context.search_plan = self.planner.plan(context.requirement, context.classification)
         context.record(

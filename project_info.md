@@ -46,6 +46,11 @@ SkillPilot/
     safety.py
     scoring.py
     utils.py
+    web.py
+    web_assets/
+      index.html
+      app.css
+      app.js
     agents/
       core.py
       requirement.py
@@ -83,6 +88,7 @@ SkillPilot/
 `skillpilot/agents/` 只放 Agent 编排逻辑。  
 `skillpilot/skills/` 放可被 Agent 调用的能力模块。  
 项目代码入口集中在 `skillpilot/agents/`、`skillpilot/skills/`、`skillpilot/pipeline.py` 和 `skillpilot/cli.py`。
+Web UI 入口在 `skillpilot/web.py`，静态页面在 `skillpilot/web_assets/`，通过本地 JSON API 复用 `SkillPilotAgent`，不绕开现有 pipeline。
 
 ## Pipeline
 
@@ -385,6 +391,7 @@ python main.py build-skill "<需求>"
 python main.py demo --case skill
 python main.py demo --case mcp
 python main.py demo --case build
+python main.py web
 ```
 
 交互模式指令：
@@ -395,6 +402,14 @@ python main.py demo --case build
 /help
 /exit
 ```
+
+Web UI：
+
+```bash
+python main.py web --host 127.0.0.1 --port 8000
+```
+
+默认打开 `http://127.0.0.1:8000`。Web UI 复用当前 pipeline，提供比 CLI 更方便的本地交互方式；运行时遵循 LLM provider、网络搜索开关、outputs 目录和 generated_skills 目录等环境变量配置。
 
 ## 输出
 

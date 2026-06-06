@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from skillpilot.agents.core import TraceObserver
 from skillpilot.agents.builder import AnswerProvider
 from skillpilot.config import AppConfig
 from skillpilot.models import AgentRunResult
@@ -19,12 +20,14 @@ class SkillPilotAgent:
         interactive_builder: bool = False,
         answer_provider: AnswerProvider | None = None,
         decision_observer: DecisionObserver | None = None,
+        trace_observer: TraceObserver | None = None,
     ) -> AgentRunResult:
         return self.pipeline.run(
             requirement,
             interactive_builder=interactive_builder,
             answer_provider=answer_provider,
             decision_observer=decision_observer,
+            trace_observer=trace_observer,
         )
 
     def build_skill(
@@ -34,6 +37,7 @@ class SkillPilotAgent:
         interactive_builder: bool = False,
         answer_provider: AnswerProvider | None = None,
         decision_observer: DecisionObserver | None = None,
+        trace_observer: TraceObserver | None = None,
     ) -> AgentRunResult:
         return self.pipeline.run(
             requirement,
@@ -41,4 +45,5 @@ class SkillPilotAgent:
             interactive_builder=interactive_builder,
             answer_provider=answer_provider,
             decision_observer=decision_observer,
+            trace_observer=trace_observer,
         )

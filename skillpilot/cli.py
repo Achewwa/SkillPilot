@@ -220,3 +220,14 @@ def build_skill(requirement: str) -> None:
 def demo(case: DemoCase = typer.Option(..., "--case", "-c")) -> None:
     """Run one of the stable classroom demo cases."""
     _run_demo_case(_agent(), case)
+
+
+@app.command()
+def web(
+    host: str = typer.Option("127.0.0.1", "--host", help="Host for the local web UI."),
+    port: int = typer.Option(8000, "--port", "-p", help="Port for the local web UI."),
+) -> None:
+    """Start the local SkillPilot web UI."""
+    from skillpilot.web import serve
+
+    serve(host=host, port=port)

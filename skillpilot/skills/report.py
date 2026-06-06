@@ -30,11 +30,12 @@ class RecommendationWriter:
         retrieved_contents: list[RetrievedContent] | None = None,
         skill_draft: SkillDraftResult | None = None,
         report_path: Path | None = None,
+        force_build_skill: bool = False,
     ) -> Path:
         self.outputs_dir.mkdir(parents=True, exist_ok=True)
         path = report_path or self.outputs_dir / "recommendation_report.md"
         lines = [
-            "# SkillPilot 推荐报告",
+            "# SkillPilot运行报告",
             "",
             "## 用户需求理解",
             "",
@@ -48,7 +49,9 @@ class RecommendationWriter:
             "",
         ]
 
-        if search_plan:
+        if force_build_skill:
+            lines.append("本次运行选择直接构造 Skill，搜索与候选评估阶段已跳过。")
+        elif search_plan:
             lines.append(f"- 目标类型：{search_plan.extension_type}")
             if requirement:
                 capabilities = self._join_or_none(requirement.desired_capabilities)

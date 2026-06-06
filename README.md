@@ -69,6 +69,8 @@ skillpilot/
   safety.py               # 风险策略
   scoring.py              # 评分权重
   utils.py                # 通用工具
+  web.py                  # 本地 Web UI 服务与 JSON API
+  web_assets/             # Web UI 静态页面、样式和交互脚本
 ```
 
 ## Agent 与 Skill
@@ -175,6 +177,14 @@ python main.py demo --case mcp
 python main.py demo --case build
 ```
 
+启动本地 Web UI：
+
+```bash
+python main.py web
+```
+
+默认地址是 `http://127.0.0.1:8000`。Web UI 复用 `SkillPilotAgent` 和现有 pipeline，提供比 CLI 更方便的本地交互界面。
+
 交互式会话支持：
 
 ```text
@@ -212,6 +222,16 @@ generated_skills/<skill-slug>/examples/
 - 安全提示
 
 `decision_trace.json` 保存完整结构化轨迹，包括需求、分类、搜索计划、搜索结果、读取内容、候选评分、最终决策、Skill 草案信息和 agent/skill trace events。
+
+## Web UI
+
+启动本地 Web UI：
+
+```bash
+python main.py web --host 127.0.0.1 --port 8000
+```
+
+默认地址是 `http://127.0.0.1:8000`。Web UI 运行时遵循当前环境变量配置，例如 `SKILLPILOT_LLM_PROVIDER`、`SKILLPILOT_ENABLE_NETWORK_SEARCH` 和输出目录配置。
 
 ## 配置
 

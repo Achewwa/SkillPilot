@@ -80,6 +80,8 @@ def test_build_skill_generates_draft(tmp_path: Path) -> None:
     trace = json.loads(
         (tmp_path / "outputs" / "decision_trace.json").read_text(encoding="utf-8")
     )
+    assert trace["search_plan"] is None
+    assert trace["search_results"] == []
     skill_path = Path(trace["skill_draft"]["path"])
     assert (skill_path / "SKILL.md").exists()
     assert (skill_path / "resources/guidance_rules.md").exists()

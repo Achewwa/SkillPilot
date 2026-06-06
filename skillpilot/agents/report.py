@@ -27,6 +27,7 @@ class ReportAgent:
             retrieved_contents=context.retrieved_contents,
             skill_draft=context.skill_draft,
             report_path=report_path,
+            force_build_skill=context.force_build_skill,
         )
         context.report_path = report_path
         context.trace_path = trace_path

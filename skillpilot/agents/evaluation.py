@@ -18,6 +18,30 @@ class CandidateEvaluationAgent:
     def run(self, context: PipelineContext) -> None:
         requirement = context.require_requirement()
         classification = context.require_classification()
+        successful_contents = [
+            content
+            for content in context.retrieved_contents
+            if content.status == "success" and content.url and content.content.strip()
+        ]
+        context.record(
+            "CandidateEvaluationAgent",
+            "CandidateEvaluationDispatchSkill",
+            summary=(
+                f"Evaluating {len(successful_contents)} retrieved contents with LLM."
+                if successful_contents
+                else "No retrieved contents are eligible for LLM evaluation; fallback may be used."
+            ),
+            metadata={
+                "contents": [
+                    {
+                        "title": content.title,
+                        "url": content.url,
+                        "source_id": content.source_id,
+                    }
+                    for content in successful_contents
+                ]
+            },
+        )
         context.evaluations = self.evaluator.evaluate_retrieved(
             requirement,
             classification,

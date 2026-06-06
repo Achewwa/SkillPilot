@@ -1,118 +1,132 @@
 # SkillPilot
 
-SkillPilot 是一个面向 Claude 扩展生态的轻量级 Python 智能体项目。它的目标是根据用户的自然语言需求，判断用户更适合使用 Claude Skill、Claude Code Plugin、MCP Server，还是组合方案；随后从固定数据源中检索或读取候选资源，对功能匹配度、文档证据和安全风险进行评估，并输出推荐报告。如果没有合适的现成资源，系统可以辅助生成一个自定义 Skill 草案。
+SkillPilot 是一个用 Python 自行搭建的轻量级智能体项目，用于帮助用户在 Claude 扩展生态中完成需求分析、资源发现、候选评估、风险判断、推荐输出，以及必要时的自定义 Skill 草案生成。
 
-本项目用于《大语言模型与信息决策》课程项目。实现方向是使用 Python 自行构建智能体工作流，而不是依赖 LangChain、CrewAI、AutoGPT 等成熟智能体框架。
+项目的核心设计是 `pipeline-agent-skill`：`SkillPilotPipeline` 负责编排整体流程；不同 Agent 承担需求分析、资源发现、候选评估、决策、Skill 构造和报告输出等角色；每个 Agent 调用对应的 Skill 模块与 LLM、网络资源、本地文件和报告系统交互。
 
-## 项目动机
+本项目用于《大语言模型与信息决策》课程项目。实现原则是用 Python 手动搭建智能体工作流，不依赖 LangChain、CrewAI、AutoGPT 等成熟智能体框架。
 
-Claude 的扩展生态中包含 Skill、Plugin、MCP 等多种能力扩展形式。普通用户经常面临几个问题：
+## 能做什么
 
-- 不清楚 Skill、Plugin、MCP 分别适合什么场景。
-- 不知道应该从官方文档、GitHub、社区目录还是其他来源查找资源。
-- 难以判断候选资源的文档证据是否足以支撑推荐。
-- 难以识别插件、MCP 或脚本可能带来的文件读写、命令执行、token 暴露、数据库访问等安全风险。
-- 当没有现成资源完全符合需求时，不知道如何构造一个可用的自定义 Skill。
+SkillPilot 接收一段自然语言需求，例如：
 
-SkillPilot 试图把这些步骤整合成一个完整闭环：需求理解、类型判断、候选检索、信息抽取、评分评估、风险分析、推荐输出，以及必要时的自定义 Skill 构造。
+```text
+我想让 Claude 帮我阅读 PDF 并总结重点
+帮我构造一个根据课程课件给作业题提示知识点但不直接给答案的 Skill
+我需要连接 GitHub issue 并读取仓库上下文
+```
 
-## 核心目标
+系统会完成以下工作：
 
-SkillPilot 的首版目标包括：
+- 将用户需求解析成结构化任务信息。
+- 判断需求更适合 Claude Skill、Claude Code Plugin、MCP Server、混合方案或未知类型。
+- 基于扩展类型选择固定的高优先级信息源。
+- 执行 source-aware 查询，并保留搜索状态、失败原因和 source id。
+- 读取页面或 GitHub 仓库内容，抽取 README、`SKILL.md`、配置文件和元数据。
+- 让 LLM 直接阅读候选原文，输出候选字段、能力匹配、文档证据、安全风险和评分。
+- 用确定性 guardrail 做最终推荐、补充构造或自定义 Skill 决策。
+- 输出中文推荐报告和 JSON 决策轨迹。
+- 在需要时生成一个 Claude Skill 草案目录。
 
-- 将用户自然语言需求解析为结构化任务信息。
-- 判断需求适合 Skill、Plugin、MCP 或混合方案。
-- 基于扩展类型规划搜索源。
-- 从缓存、文档、GitHub 仓库或社区资源中读取候选资源。
-- 抽取候选资源的功能、安装方式、依赖、维护状态、权限和风险信息。
-- 根据功能匹配、文档证据和安全风险对候选资源排序。
-- 输出中文推荐报告，说明推荐理由、缺失能力、风险提示和使用建议。
-- 当现有候选不合适时，生成自定义 Skill 草案。
-- 保存决策轨迹，便于复现和课堂展示。
-
-## MVP 范围
-
-首版将实现为命令行工具，不做图形界面。MVP 重点是稳定、可解释、可展示的智能体流程，而不是大规模实时搜索。
+## 当前架构
 
 ```text
 用户需求
-  -> RequirementParser：需求解析
-  -> ExtensionTypeClassifier：扩展类型判断
-  -> SourcePlanner：搜索源规划
-  -> SearchTools / 本地缓存：候选检索
-  -> PageReader / RepoReader：页面或仓库读取
-  -> LLM Evaluator：直接阅读候选原文并输出候选信息、能力、文档和安全评分
-  -> DecisionGate：推荐或构造决策
-  -> RecommendationWriter / SkillBuilder：输出报告或 Skill 草案
+  -> SkillPilotPipeline
+     -> RequirementAnalysisAgent
+        -> RequirementParser
+        -> ExtensionTypeClassifier
+        -> SourcePlanner
+     -> SourceDiscoveryAgent
+        -> SearchExecutor / SourceSearchAgent
+        -> ContentReader / PageReader / RepoReader
+     -> CandidateEvaluationAgent
+        -> CandidateEvaluator
+        -> LocalCandidateCache
+     -> DecisionAgent
+        -> DecisionGate
+     -> SkillBuilderAgent
+        -> QuestionPlanner
+        -> SkillSpecGenerator
+        -> SafetyReviewer
+        -> SkillBuilder
+     -> ReportAgent
+        -> RecommendationWriter
 ```
 
-MVP 不会自动安装第三方 Plugin 或 MCP Server，也不会自动运行第三方脚本。系统只提供分析、推荐、风险提示和安全范围内的 Skill 草案生成。
-
-## 计划中的命令行形式
-
-```bash
-python main.py
-python main.py recommend "我想让 Claude 自动生成 Python 单元测试并分析失败原因"
-python main.py build-skill "帮我构造一个根据课程课件给作业题提示知识点但不直接给答案的 Skill"
-python main.py demo --case skill
-python main.py demo --case mcp
-python main.py demo --case build
-```
-
-直接运行 `python main.py` 会进入交互式会话。会话中直接输入自然语言需求即可，系统会自动尝试推荐已有扩展；如果判断没有合适候选，会进入自定义 Skill 草案流程。也可以使用 `/build <需求>` 直接生成 Skill 草案，使用 `/demo skill|mcp|build` 运行演示案例，使用 `/exit` 退出。
-
-## 预期输出
+主要目录：
 
 ```text
-outputs/recommendation_report.md
-outputs/decision_trace.json
-generated_skills/<skill-name>/SKILL.md
-generated_skills/<skill-name>/resources/
-generated_skills/<skill-name>/examples/
+skillpilot/
+  agents/                 # Agent 编排层
+  skills/                 # 可被 Agent 调用的能力模块
+    builder/              # Skill 构造相关能力
+    discovery/            # 搜索源、搜索执行和内容读取
+  models.py               # Pydantic 数据模型
+  pipeline.py             # 主流程编排
+  config.py               # 环境变量配置
+  llm.py                  # LLM 适配层
+  safety.py               # 风险策略
+  scoring.py              # 评分权重
+  utils.py                # 通用工具
 ```
 
-推荐报告应包含：
+## Agent 与 Skill
 
-- 用户需求理解
-- 推荐扩展类型
-- 搜索范围
-- 候选资源列表
-- 候选排序与评分
-- 功能匹配说明
-- 缺失能力说明
-- 文档证据与安全风险分析
-- 使用建议或替代方案
+`RequirementAnalysisAgent` 负责理解需求、判断扩展类型并规划搜索源。它调用 `RequirementParser`、`ExtensionTypeClassifier` 和 `SourcePlanner`。
+
+`SourceDiscoveryAgent` 负责资源发现和内容读取。它调用 `SearchExecutor`、`SourceSearchAgent`、`ContentReader`、`PageReader` 和 `RepoReader`。
+
+资源发现使用 `docs/stage_2_3_source_access.json` 作为网页/API 搜索指导。每个 `source_id` 都有一个 JSON 条目，声明入口 URL、搜索器类型、内容格式、查询参数、结果字段映射、详情读取策略、风险提示和失败处理方式。运行时 `SourceAccessGuideLoader` 会按 `SearchQuery.source_id` 读取对应条目，`SourceSearchTool` 再按 `searcher_type` 分发到 marketplace JSON、registry API、docs keyword 或 GitHub contents 等通用搜索器。
+
+`CandidateEvaluationAgent` 负责候选理解和评分。它调用 `CandidateEvaluator`，在离线或搜索全部跳过时可使用 `LocalCandidateCache`。
+
+`DecisionAgent` 负责最终决策。它调用 `DecisionGate`，根据匹配分、风险等级和候选可用性选择推荐现有资源、推荐现有资源并补充自定义 Skill，或直接构造自定义 Skill。
+
+`SkillBuilderAgent` 负责构造 Skill 草案。它会生成澄清问题、处理三选项和自由文本回答、生成 Skill 规格、做安全审查，并写入 `SKILL.md`、`resources/`、`examples/` 等文件。
+
+`ReportAgent` 负责写出推荐报告和决策轨迹。
+
+## LLM 与确定性逻辑
+
+SkillPilot 使用 LLM 处理语义判断和结构化理解，包括：
+
+- 需求解析
+- 扩展类型判断
+- source-aware 查询规划
+- 候选原文理解与评分
+- 决策原因润色
+- Skill 规格和资源内容生成
+- Skill 构造安全审查
+
+以下逻辑保持确定性：
+
+- URL 解析和 GitHub 仓库路径解析
+- 文件写入
+- 配置读取
+- 枚举校验
+- 搜索和读取上限
+- 评分聚合公式
+- 高风险 guardrail
+- 第三方扩展不自动安装、不自动运行
 
 ## 安全原则
 
-SkillPilot 不应无条件推荐或生成高风险能力。以下行为需要被标记为高风险：
+SkillPilot 不会自动安装、运行或授权第三方 Plugin、MCP Server、脚本或仓库代码。
 
-- 自动执行 shell 命令
-- 写入或批量删除文件
-- 自动 hooks
-- 访问 API token 或账号凭据
+以下行为会被重点标记为高风险：
+
+- 执行 shell 命令
+- 写入、覆盖或批量删除文件
+- 自动 hook 或后台执行
+- 读取、收集或传输 API key、token、账号凭据
 - 操作数据库
 - 连接远程服务并执行写操作
+- 生成或分发未经审查的脚本
 
-对于高风险候选，系统应给出风险提示和安全替代方案，而不是鼓励用户直接安装或运行。
+高风险候选不会被鼓励直接安装。系统会给出风险原因、安全替代方案，或转入更小权限的自定义 Skill 草案流程。
 
-## 当前状态
-
-当前仓库处于项目初始阶段。已经完成：
-
-- 阅读课程项目要求 PDF。
-- 阅读并整理原始项目草案。
-- 创建 conda 环境 `skill_pilot`。
-- 安装初始 Python 依赖。
-- 验证 WSL 中的 Claude Code 可以正常调用。
-- 创建项目介绍 README。
-- 创建 `project_info.md` 作为跨窗口同步的项目记忆文件。
-- 搭建可运行 Python 项目骨架，包括 CLI、核心模型、占位 agent 流程、本地 demo 缓存、报告输出和自定义 Skill 草案生成。
-- 添加基座 LLM 配置层，默认复用 WSL 本地 `claude` CLI 的现有配置。
-
-具体进度请查看 `project_info.md`。
-
-## 环境使用
+## 安装与环境
 
 在 WSL 中进入项目：
 
@@ -121,48 +135,150 @@ conda activate skill_pilot
 cd /home/achewwa/Projects/SkillPilot
 ```
 
-验证 Claude Code：
+运行测试：
 
 ```bash
-claude -p --tools '' --no-session-persistence --max-budget-usd 0.05 'Please only output OK'
+conda run -n skill_pilot python -m pytest
 ```
 
-预期输出：
+也可以直接使用当前环境运行：
+
+```bash
+python -m pytest
+```
+
+## 命令行使用
+
+进入交互式会话：
+
+```bash
+python main.py
+```
+
+推荐现有扩展或方案：
+
+```bash
+python main.py recommend "我想让 Claude 自动生成 Python 单元测试并分析失败原因"
+```
+
+直接构造自定义 Skill 草案：
+
+```bash
+python main.py build-skill "帮我构造一个根据课程课件给作业题提示知识点但不直接给答案的 Skill"
+```
+
+运行演示案例：
+
+```bash
+python main.py demo --case skill
+python main.py demo --case mcp
+python main.py demo --case build
+```
+
+交互式会话支持：
 
 ```text
-OK
+/build <需求>      直接进入 Skill 构造流程
+/demo skill|mcp|build
+/help
+/exit
 ```
 
-## LLM 配置
+当推荐流程决定进入自定义 Skill 构造时，CLI 会先打印决策阶段摘要，包括 decision type、原因、候选数量、最佳候选和读取成功数，并预先写出 `outputs/recommendation_report.md`。随后才进入 Builder 澄清问答；Builder 结束后报告会被更新为包含 Skill 草案信息的最终版本。
 
-项目代码中的基座 LLM 默认通过 WSL 本地 `claude` CLI 调用，复用当前机器上已有的 Claude Code 配置，不在项目内保存 API key 或 endpoint。
+## 输出文件
 
-可选环境变量：
+默认输出：
+
+```text
+outputs/recommendation_report.md
+outputs/decision_trace.json
+generated_skills/<skill-slug>/SKILL.md
+generated_skills/<skill-slug>/resources/
+generated_skills/<skill-slug>/examples/
+```
+
+`recommendation_report.md` 包含：
+
+- 用户需求理解
+- 扩展类型判断
+- 搜索计划和搜索源
+- 搜索结果
+- 页面与仓库读取结果
+- 失败处理
+- 候选资源与评分
+- 决策结果
+- SkillBuilder 构造过程
+- 安全提示
+
+`decision_trace.json` 保存完整结构化轨迹，包括需求、分类、搜索计划、搜索结果、读取内容、候选评分、最终决策、Skill 草案信息和 agent/skill trace events。
+
+## 配置
+
+默认 LLM provider 是 WSL 本地 `claude` CLI，复用本机 Claude Code 配置，不在项目中保存 API key 或 endpoint。
+项目默认显式使用 `claude-sonnet-4-6`，避免跟随 Claude CLI 的本地默认模型变化。
+
+常用 LLM 配置：
 
 ```bash
 export SKILLPILOT_LLM_PROVIDER=claude_cli
 export SKILLPILOT_CLAUDE_COMMAND=claude
+export SKILLPILOT_CLAUDE_MODEL=claude-sonnet-4-6
+export SKILLPILOT_CLAUDE_MAX_BUDGET_USD=0.05
 export SKILLPILOT_ENABLE_LLM_EVALUATION=1
 ```
 
-## 网络搜索配置
-
-网络搜索默认开启。需要离线测试或课堂演示固定输出时，可以显式关闭：
+离线测试可使用静态 JSON provider：
 
 ```bash
-export SKILLPILOT_ENABLE_NETWORK_SEARCH=0
+export SKILLPILOT_LLM_PROVIDER=static_json
 ```
 
-如果 WSL 需要通过宿主机代理访问外网，可以设置：
+搜索配置：
 
 ```bash
-export SKILLPILOT_HTTP_PROXY=http://172.22.0.1:7890
+export SKILLPILOT_ENABLE_NETWORK_SEARCH=1
 export SKILLPILOT_SEARCH_TIMEOUT_SECONDS=8
-export SKILLPILOT_SEARCH_MAX_RESULTS=3
+export SKILLPILOT_SEARCH_MAX_RESULTS=5
+export SKILLPILOT_HTTP_PROXY=http://172.22.0.1:7890
+export GITHUB_TOKEN=<optional-token>
+```
+
+如果没有显式设置 `GITHUB_TOKEN` 或 `GH_TOKEN`，SkillPilot 会尝试读取本机 GitHub CLI 登录态：
+
+```bash
+gh auth token
+```
+
+该 token 只在运行时传给 GitHub API，不会写入项目文件、报告或 trace。
+
+Builder 配置：
+
+```bash
+export SKILLPILOT_BUILDER_INTERACTIVE=1
+export SKILLPILOT_BUILDER_MAX_ROUNDS=3
+export SKILLPILOT_OUTPUTS_DIR=outputs
+export SKILLPILOT_GENERATED_SKILLS_DIR=generated_skills
+```
+
+## 当前测试状态
+
+当前测试命令：
+
+```bash
+conda run -n skill_pilot python -m pytest
+```
+
+当前测试结果：
+
+```text
+41 passed
 ```
 
 ## 参考文件
 
-- `info.pdf`：课程项目要求。
-- `project_draft.md`：原始项目计划草案，仅作为参考，后续可以根据实际实现删改。
-- `project_info.md`：项目进度与同步信息。
+- `project_info.md`：项目同步信息、结构说明和后续开发注意事项。
+- `docs/pipeline_agent_skill_mapping.md`：pipeline、agent、skill 与当前代码路径的映射。
+- `docs/stage_2_3_source_access.json`：source-specific 网页/API 搜索与读取的结构化运行指南。
+- `data/demo_cases.json`：演示用需求样例。
+- `data/candidate_cache.json`：离线或跳过搜索时使用的本地候选缓存。

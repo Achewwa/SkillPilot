@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Protocol
+from typing import Any
 
 from skillpilot.models import (
     BuilderSession,
@@ -13,15 +13,12 @@ from skillpilot.models import (
     SkillSpec,
     TypeClassification,
 )
-
-
-class BuilderLLM(Protocol):
-    def generate(self, prompt: str) -> Any:
-        ...
+from skillpilot.skills.core import LLMProvider
+from skillpilot.utils import extract_json_object
 
 
 class SkillSpecGenerator:
-    def __init__(self, llm: BuilderLLM | None = None) -> None:
+    def __init__(self, llm: LLMProvider | None = None) -> None:
         self.llm = llm
 
     def generate(
@@ -275,16 +272,7 @@ class SkillSpecGenerator:
 
 
 def _extract_json(text: str) -> str:
-    stripped = text.strip()
-    if stripped.startswith("```"):
-        stripped = stripped.strip("`").strip()
-        if stripped.startswith("json"):
-            stripped = stripped.removeprefix("json").strip()
-    start = stripped.find("{")
-    end = stripped.rfind("}")
-    if start == -1 or end == -1 or end < start:
-        raise ValueError("LLM response did not contain a JSON object.")
-    return stripped[start : end + 1]
+    return extract_json_object(text)
 
 
 def _string_list(value: Any) -> list[str]:

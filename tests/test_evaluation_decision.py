@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 
-from skillpilot.io.report_writer import RecommendationWriter
 from skillpilot.models import (
     Candidate,
     RetrievedContent,
@@ -11,8 +10,11 @@ from skillpilot.models import (
     SearchResult,
     TypeClassification,
 )
-from skillpilot.modules.source_catalog import SourceCatalog
-from skillpilot.modules.stubs import CandidateEvaluator, DecisionGate, RequirementParser
+from skillpilot.skills.decision import DecisionGate
+from skillpilot.skills.discovery.source_catalog import SourceCatalog
+from skillpilot.skills.evaluation import CandidateEvaluator
+from skillpilot.skills.report import RecommendationWriter
+from skillpilot.skills.requirement import RequirementParser
 
 
 class FakeLLM:

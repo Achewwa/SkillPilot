@@ -4,9 +4,12 @@ import json
 
 from skillpilot.config import SearchConfig, load_config
 from skillpilot.models import SearchPlan, SearchQuery, SearchResult, TypeClassification
-from skillpilot.modules.search_tools import SearchExecutor, SourceSearchTool
-from skillpilot.modules.source_catalog import SourceCatalog
-from skillpilot.modules.stubs import ExtensionTypeClassifier, RequirementParser, SourcePlanner
+from skillpilot.skills.classification import ExtensionTypeClassifier
+from skillpilot.skills.discovery.source_access_guide import SourceAccessGuideLoader
+from skillpilot.skills.discovery.search_tools import SearchExecutor, SourceSearchTool
+from skillpilot.skills.discovery.source_catalog import SourceCatalog
+from skillpilot.skills.planning import SourcePlanner
+from skillpilot.skills.requirement import RequirementParser
 
 
 class FakeLLM:
@@ -75,6 +78,18 @@ def test_source_planner_generates_targeted_skill_queries() -> None:
     assert {query.source_type for query in plan.queries} == {"source"}
     assert "Claude Skill" in query_text
     assert "SKILL.md" in query_text
+
+
+def test_source_access_guide_covers_source_catalog() -> None:
+    catalog = SourceCatalog()
+    catalog_source_ids = {
+        source.source_id
+        for extension_type in ("skill", "mcp", "plugin")
+        for source in catalog.sources_for(extension_type)  # type: ignore[arg-type]
+    }
+    guide_source_ids = set(SourceAccessGuideLoader().all())
+
+    assert guide_source_ids == catalog_source_ids
 
 
 def test_poster_skill_requirement_generates_visual_design_query() -> None:
@@ -231,6 +246,112 @@ def test_skillsmp_response_parser_returns_github_results() -> None:
     assert results[0].source_id == "skillsmp_directory"
     assert results[0].url == "https://github.com/owner/repo"
     assert results[0].metadata["skillsmp_url"] == "https://skillsmp.com/skills/owner-repo-pdf-md"
+
+
+def test_marketplace_json_searcher_matches_plugin_fixture() -> None:
+    guide = SourceAccessGuideLoader().get("anthropic_demo_plugin_marketplace")
+    assert guide is not None
+    query = SearchQuery(
+        text="GitHub pull request review Claude Code plugin",
+        source_type="source",
+        extension_type="plugin",
+        purpose="Search demo plugin marketplace.",
+        source_id=guide.source_id,
+        max_results=5,
+    )
+    payload = {
+        "plugins": [
+            {
+                "name": "code-review",
+                "description": "Automated code review for pull requests using specialized agents.",
+                "source": "./plugins/code-review",
+                "category": "productivity",
+            },
+            {
+                "name": "frontend-design",
+                "description": "Create production-grade frontend interfaces.",
+                "source": "./plugins/frontend-design",
+                "category": "development",
+            },
+        ]
+    }
+
+    results = SourceSearchTool()._parse_marketplace_results(query, guide, payload)
+
+    assert [result.title for result in results] == ["code-review"]
+    assert results[0].status == "success"
+    assert results[0].source_id == "anthropic_demo_plugin_marketplace"
+    assert results[0].url.endswith("/tree/main/plugins/code-review")
+
+
+def test_registry_api_searcher_matches_mcp_fixture() -> None:
+    guide = SourceAccessGuideLoader().get("official_mcp_registry")
+    assert guide is not None
+    query = SearchQuery(
+        text="GitHub issue pull request MCP server",
+        source_type="source",
+        extension_type="mcp",
+        purpose="Search official MCP registry.",
+        source_id=guide.source_id,
+        max_results=5,
+    )
+    payload = {
+        "servers": [
+            {
+                "server": {
+                    "name": "io.github.github-mcp",
+                    "title": "GitHub MCP Server",
+                    "description": "Manage GitHub issues, pull requests, and repositories.",
+                    "repository": {"url": "https://github.com/github/github-mcp-server"},
+                }
+            },
+            {
+                "server": {
+                    "name": "docs-mcp",
+                    "description": "Search documentation pages.",
+                }
+            },
+        ]
+    }
+
+    results = SourceSearchTool()._parse_registry_results(query, guide, payload)
+
+    assert [result.title for result in results] == ["GitHub MCP Server"]
+    assert results[0].source_type == "github"
+    assert results[0].url == "https://github.com/github/github-mcp-server"
+
+
+def test_source_search_tool_dispatches_by_json_guide(monkeypatch) -> None:
+    tool = SourceSearchTool()
+
+    def fake_fetch_json(url: str):
+        assert url.endswith("/marketplace.json")
+        return {
+            "plugins": [
+                {
+                    "name": "pr-review-toolkit",
+                    "description": "Comprehensive PR review agents for pull requests and tests.",
+                    "source": "./plugins/pr-review-toolkit",
+                }
+            ]
+        }
+
+    monkeypatch.setattr(tool, "_fetch_json", fake_fetch_json)
+    query = SearchQuery(
+        text="pull request review agents",
+        source_type="source",
+        extension_type="plugin",
+        purpose="Search demo marketplace.",
+        source_id="anthropic_demo_plugin_marketplace",
+        max_results=5,
+    )
+
+    results = tool.search(query)
+
+    assert len(results) == 1
+    assert results[0].status == "success"
+    assert results[0].title == "pr-review-toolkit"
+    assert results[0].metadata["searcher_type"] == "marketplace_json_searcher"
 
 
 def test_search_executor_runs_one_agent_per_source() -> None:

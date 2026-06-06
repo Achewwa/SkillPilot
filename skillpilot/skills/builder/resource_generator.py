@@ -1,10 +1,20 @@
 from __future__ import annotations
 
+import json
+
 from skillpilot.models import SkillResourceSpec, SkillSpec
+from skillpilot.skills.core import LLMProvider
+from skillpilot.utils import extract_json_object
 
 
 class ResourceGenerator:
+    def __init__(self, llm: LLMProvider | None = None) -> None:
+        self.llm = llm
+
     def render(self, file_spec: SkillResourceSpec, spec: SkillSpec) -> str:
+        llm_content = self._render_with_llm(file_spec, spec)
+        if llm_content:
+            return llm_content
         if file_spec.path.endswith("guidance_rules.md"):
             return self._guidance_rules(spec)
         if file_spec.path.endswith("output_template.md"):
@@ -16,6 +26,26 @@ class ResourceGenerator:
         if file_spec.path == "scripts/README.md":
             return self._scripts_readme(spec)
         return self._generic_resource(file_spec, spec)
+
+    def _render_with_llm(self, file_spec: SkillResourceSpec, spec: SkillSpec) -> str:
+        if self.llm is None or file_spec.path in {"README.md", "scripts/README.md"}:
+            return ""
+        prompt = (
+            "你是 SkillPilot 的 ResourceGenerationSkill。请根据 SkillSpec 和文件说明生成一个可直接写入的 "
+            "Markdown 资源文件正文。返回严格 JSON，不要 Markdown fence。字段：content。"
+            "content 必须符合 path 和 content_hint，不要生成可执行脚本，不要要求用户提供密钥。\n"
+            f"SkillSpec：{spec.model_dump()}\n"
+            f"文件：{file_spec.model_dump()}"
+        )
+        try:
+            response = self.llm.generate(prompt)
+            payload = json.loads(extract_json_object(getattr(response, "text", str(response))))
+        except Exception:  # noqa: BLE001 - static templates remain the safe fallback.
+            return ""
+        content = str(payload.get("content") or "").strip()
+        if not content:
+            return ""
+        return content.rstrip() + "\n"
 
     def _guidance_rules(self, spec: SkillSpec) -> str:
         lines = [

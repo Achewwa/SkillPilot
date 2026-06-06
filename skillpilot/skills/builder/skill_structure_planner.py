@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from skillpilot.models import SkillResourceSpec, SkillSpec
+from skillpilot.utils import dedupe_preserve_order
 
 
 class SkillStructurePlanner:
@@ -32,11 +33,4 @@ class SkillStructurePlanner:
         return files
 
     def _dedupe_specs(self, specs: list[SkillResourceSpec]) -> list[SkillResourceSpec]:
-        seen: set[str] = set()
-        deduped: list[SkillResourceSpec] = []
-        for spec in specs:
-            if spec.path in seen:
-                continue
-            seen.add(spec.path)
-            deduped.append(spec)
-        return deduped
+        return dedupe_preserve_order(specs, key=lambda spec: spec.path)

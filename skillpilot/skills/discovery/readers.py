@@ -170,19 +170,30 @@ class RepoReader:
             return self._failed_message(result, "URL is not a GitHub repository URL.")
         owner, repo = repo_ref
 
-        try:
-            with httpx.Client(
-                timeout=self.timeout_seconds,
-                follow_redirects=True,
-                proxy=self.proxy_url,
-            ) as client:
-                repo_data = self._get_repo_metadata(client, owner, repo)
-                readme = self._get_readme(client, owner, repo)
-                config_files = self._get_common_files(client, owner, repo)
-        except Exception as exc:  # noqa: BLE001 - read failures should stay in the trace.
-            return self._failed(result, exc)
+        read_warnings: list[str] = []
+        with httpx.Client(
+            timeout=self.timeout_seconds,
+            follow_redirects=True,
+            proxy=self.proxy_url,
+        ) as client:
+            repo_data = self._get_repo_metadata_with_fallback(
+                client,
+                result,
+                owner,
+                repo,
+                read_warnings,
+            )
+            readme = self._get_readme_with_fallback(client, owner, repo, read_warnings)
+            config_files = self._get_common_files_with_fallback(
+                client,
+                owner,
+                repo,
+                read_warnings,
+            )
 
         metadata = self._metadata_from_repo(repo_data, config_files)
+        if read_warnings:
+            metadata["read_warnings"] = read_warnings
         content = self._build_repo_content(repo_data, readme, config_files)
         return RetrievedContent(
             title=repo_data.get("full_name") or result.title,
@@ -312,6 +323,93 @@ class RepoReader:
         if self.github_token:
             headers["Authorization"] = f"Bearer {self.github_token}"
         return headers
+
+    def _get_repo_metadata_with_fallback(
+        self,
+        client: httpx.Client,
+        result: SearchResult,
+        owner: str,
+        repo: str,
+        read_warnings: list[str],
+    ) -> dict[str, Any]:
+        try:
+            return self._get_repo_metadata(client, owner, repo)
+        except Exception as exc:  # noqa: BLE001 - fallback keeps candidate readable.
+            read_warnings.append(f"GitHub repository metadata API failed: {exc}")
+            return {
+                "full_name": f"{owner}/{repo}",
+                "name": repo,
+                "html_url": result.url,
+                "description": result.snippet,
+                "license": {},
+                "stargazers_count": result.metadata.get("stars") or 0,
+                "forks_count": result.metadata.get("forks"),
+                "open_issues_count": result.metadata.get("open_issues"),
+                "language": result.metadata.get("language"),
+                "updated_at": result.metadata.get("last_updated") or result.metadata.get("updated_at"),
+                "homepage": "",
+                "topics": [],
+            }
+
+    def _get_readme_with_fallback(
+        self,
+        client: httpx.Client,
+        owner: str,
+        repo: str,
+        read_warnings: list[str],
+    ) -> str:
+        try:
+            return self._get_readme(client, owner, repo)
+        except Exception as exc:  # noqa: BLE001 - raw fallback may still work under API limits.
+            read_warnings.append(f"GitHub README API failed: {exc}")
+            return self._get_raw_default_file(client, owner, repo, "README.md", read_warnings)
+
+    def _get_common_files_with_fallback(
+        self,
+        client: httpx.Client,
+        owner: str,
+        repo: str,
+        read_warnings: list[str],
+    ) -> dict[str, str]:
+        files: dict[str, str] = {}
+        for path in self.COMMON_FILES:
+            if path == "README.md":
+                continue
+            try:
+                response = client.get(
+                    f"https://api.github.com/repos/{owner}/{repo}/contents/{path}",
+                    headers=self._headers("application/vnd.github.raw"),
+                )
+                if response.status_code == 404:
+                    continue
+                response.raise_for_status()
+                files[path] = response.text
+                continue
+            except Exception as exc:  # noqa: BLE001 - fallback keeps partial reads useful.
+                read_warnings.append(f"GitHub contents API failed for {path}: {exc}")
+
+            raw_text = self._get_raw_default_file(client, owner, repo, path, read_warnings)
+            if raw_text:
+                files[path] = raw_text
+        return files
+
+    def _get_raw_default_file(
+        self,
+        client: httpx.Client,
+        owner: str,
+        repo: str,
+        path: str,
+        read_warnings: list[str],
+    ) -> str:
+        for ref in ("main", "master"):
+            try:
+                text = self._get_raw_github_file(client, owner, repo, ref, path)
+            except Exception as exc:  # noqa: BLE001 - try the next default branch.
+                read_warnings.append(f"Raw GitHub read failed for {ref}/{path}: {exc}")
+                continue
+            if text:
+                return text
+        return ""
 
     def _get_repo_metadata(
         self,

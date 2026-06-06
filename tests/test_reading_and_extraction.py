@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import httpx
+
 from skillpilot.config import SearchConfig
 from skillpilot.models import SearchResult
-from skillpilot.modules.readers import ContentReader, RepoReader
+from skillpilot.skills.discovery.readers import ContentReader, RepoReader
 
 
 def test_repo_reader_parses_github_repository_urls() -> None:
@@ -79,6 +81,41 @@ def test_skillsmp_tree_result_requires_skill_md(monkeypatch) -> None:
 
     assert content.status == "failed"
     assert "No SKILL.md" in (content.error_message or "")
+
+
+def test_repo_reader_falls_back_to_raw_readme_when_github_api_is_limited(monkeypatch) -> None:
+    reader = RepoReader()
+    reader.COMMON_FILES = ("README.md",)
+
+    request = httpx.Request("GET", "https://api.github.com/repos/owner/repo")
+    response = httpx.Response(403, request=request, text="rate limit exceeded")
+
+    def raise_rate_limit(*_args, **_kwargs):
+        raise httpx.HTTPStatusError("rate limit exceeded", request=request, response=response)
+
+    def fake_raw_file(_client, owner: str, repo: str, ref: str, path: str) -> str:
+        assert (owner, repo, ref, path) == ("owner", "repo", "main", "README.md")
+        return "# GitHub MCP\nManage issues, pull requests, and repository workflows."
+
+    monkeypatch.setattr(reader, "_get_repo_metadata", raise_rate_limit)
+    monkeypatch.setattr(reader, "_get_readme", raise_rate_limit)
+    monkeypatch.setattr(reader, "_get_raw_github_file", fake_raw_file)
+    result = SearchResult(
+        title="GitHub MCP",
+        url="https://github.com/owner/repo",
+        snippet="Manage GitHub repositories.",
+        source_type="github",
+        query="github repository management",
+        status="success",
+        source_id="official_mcp_registry",
+    )
+
+    content = reader.read(result)
+
+    assert content.status == "success"
+    assert "GitHub MCP" in content.content
+    assert content.metadata["full_name"] == "owner/repo"
+    assert "read_warnings" in content.metadata
 
 
 def test_content_reader_records_skipped_search_results() -> None:

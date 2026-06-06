@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from skillpilot.models import ExtensionType, SearchSource
+from skillpilot.utils import dedupe_preserve_order
 
 
 class SourceCatalog:
@@ -32,14 +33,7 @@ class SourceCatalog:
         return next((source for source in self._sources if source.source_id == source_id), None)
 
     def _dedupe(self, sources: list[SearchSource]) -> list[SearchSource]:
-        seen: set[str] = set()
-        deduped: list[SearchSource] = []
-        for source in sources:
-            if source.source_id in seen:
-                continue
-            seen.add(source.source_id)
-            deduped.append(source)
-        return deduped
+        return dedupe_preserve_order(sources, key=lambda source: source.source_id)
 
     def _build_sources(self) -> list[SearchSource]:
         return [

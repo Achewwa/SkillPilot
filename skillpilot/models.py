@@ -196,6 +196,14 @@ class SafetyReviewResult(BaseModel):
     safe_alternatives: list[str] = Field(default_factory=list)
 
 
+class AgentSkillTraceEvent(BaseModel):
+    agent: str
+    skill: str
+    status: Literal["success", "fallback", "skipped", "failed"] = "success"
+    summary: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class BuilderSession(BaseModel):
     phase: BuilderPhase = "intake"
     turns: list[BuilderTurn] = Field(default_factory=list)
@@ -227,6 +235,7 @@ class AgentRunResult(BaseModel):
     trace_path: str
     skill_draft: SkillDraftResult | None = None
     builder_session: BuilderSession | None = None
+    trace_events: list[AgentSkillTraceEvent] = Field(default_factory=list)
     created_at: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )

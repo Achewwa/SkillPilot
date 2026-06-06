@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -12,6 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 class LLMConfig:
     provider: str = "claude_cli"
     claude_command: str = "claude"
+    claude_model: str = "claude-sonnet-4-6"
     max_budget_usd: float | None = None
     disable_tools: bool = True
     no_session_persistence: bool = True
@@ -51,6 +53,7 @@ def load_config() -> AppConfig:
     llm = LLMConfig(
         provider=os.getenv("SKILLPILOT_LLM_PROVIDER", "claude_cli"),
         claude_command=os.getenv("SKILLPILOT_CLAUDE_COMMAND", "claude"),
+        claude_model=os.getenv("SKILLPILOT_CLAUDE_MODEL", "claude-sonnet-4-6"),
         max_budget_usd=float(max_budget) if max_budget else None,
         disable_tools=os.getenv("SKILLPILOT_CLAUDE_DISABLE_TOOLS", "1") != "0",
         no_session_persistence=os.getenv("SKILLPILOT_CLAUDE_NO_SESSION", "1") != "0",
@@ -60,7 +63,7 @@ def load_config() -> AppConfig:
         enable_network_search=os.getenv("SKILLPILOT_ENABLE_NETWORK_SEARCH", "1") == "1",
         timeout_seconds=float(os.getenv("SKILLPILOT_SEARCH_TIMEOUT_SECONDS", "8")),
         max_results_per_query=int(os.getenv("SKILLPILOT_SEARCH_MAX_RESULTS", "5")),
-        github_token=os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN"),
+        github_token=_resolve_github_token(),
         proxy_url=(
             os.getenv("SKILLPILOT_HTTP_PROXY")
             or os.getenv("SKILLPILOT_HTTPS_PROXY")
@@ -87,3 +90,27 @@ def load_config() -> AppConfig:
         search=search,
         builder=builder,
     )
+
+
+def _resolve_github_token() -> str | None:
+    token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
+    if token:
+        return token
+    return _read_github_cli_token()
+
+
+def _read_github_cli_token() -> str | None:
+    try:
+        result = subprocess.run(
+            ["gh", "auth", "token"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+    except (FileNotFoundError, subprocess.SubprocessError, TimeoutError):
+        return None
+    if result.returncode != 0:
+        return None
+    token = result.stdout.strip()
+    return token or None

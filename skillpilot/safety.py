@@ -1,9 +1,21 @@
 from __future__ import annotations
 
-from skillpilot.models import ParsedRequirement, SafetyReviewResult, SkillSpec
+from dataclasses import dataclass, field
+
+from skillpilot.models import Candidate, ParsedRequirement, RiskLevel, SkillSpec
+from skillpilot.utils import dedupe_preserve_order
 
 
-class SafetyReviewer:
+@dataclass(frozen=True)
+class RiskAssessment:
+    risk_level: RiskLevel
+    safety_score: float
+    risk_reasons: list[str] = field(default_factory=list)
+    allowed: bool = True
+    safe_alternatives: list[str] = field(default_factory=list)
+
+
+class RiskPolicy:
     HIGH_RISK_TERMS = {
         "token": "需求涉及 token 或 API 凭据，不能生成会收集或暴露凭据的 Skill。",
         "api key": "需求涉及 API key，必须避免把密钥写入模板或示例。",
@@ -17,7 +29,38 @@ class SafetyReviewer:
         "写入": "需求涉及写入操作，需要明确范围并避免自动修改关键数据。",
     }
 
-    def review(self, requirement: ParsedRequirement, spec: SkillSpec) -> SafetyReviewResult:
+    def assess_candidate(self, candidate: Candidate) -> RiskAssessment:
+        permissions = set(candidate.permissions)
+        dependencies = set(candidate.dependencies)
+        risk_reasons: list[str] = []
+        high_risk = bool({"write_repository", "command_execution"} & permissions) or bool(
+            {"api_token", "github_token"} & dependencies
+        )
+        medium_risk = bool({"external_service", "read_repository", "read_documents"} & permissions)
+        if "write_repository" in permissions:
+            risk_reasons.append("候选涉及仓库写入权限，可能修改代码、提交或创建 PR。")
+        if "command_execution" in permissions:
+            risk_reasons.append("候选涉及命令执行，需要避免自动运行不可信脚本。")
+        if {"api_token", "github_token"} & dependencies:
+            risk_reasons.append("候选需要 token 或 API 凭据，应避免在未审计配置中暴露。")
+        if "external_service" in permissions:
+            risk_reasons.append("候选需要连接外部服务，可能涉及账号、网络请求或远程数据。")
+        if "read_repository" in permissions:
+            risk_reasons.append("候选会读取仓库或代码库，需要确认访问范围。")
+        if "read_documents" in permissions:
+            risk_reasons.append("候选会读取本地或上传文档，需要确认文件范围和隐私。")
+        if high_risk:
+            return RiskAssessment("high", 0.0, risk_reasons)
+        if medium_risk:
+            return RiskAssessment("medium", 0.55, risk_reasons)
+        risk_reasons.append("未发现明显的高危权限或敏感依赖。")
+        return RiskAssessment("low", 1.0, risk_reasons)
+
+    def assess_skill_request(
+        self,
+        requirement: ParsedRequirement,
+        spec: SkillSpec,
+    ) -> RiskAssessment:
         text = " ".join(
             [
                 requirement.raw_text,
@@ -36,11 +79,13 @@ class SafetyReviewer:
         if spec.requires_scripts:
             risk_reasons.append("规格要求生成辅助脚本，必须在人工审查后才可启用。")
 
+        risk_reasons = dedupe_preserve_order(risk_reasons)
         if any("命令" in reason or "删除" in reason or "数据库" in reason for reason in risk_reasons):
-            return SafetyReviewResult(
-                allowed=False,
+            return RiskAssessment(
                 risk_level="high",
-                risk_reasons=_dedupe(risk_reasons),
+                safety_score=0.0,
+                risk_reasons=risk_reasons,
+                allowed=False,
                 safe_alternatives=[
                     "改为生成只读检查清单和人工执行步骤，不包含可执行脚本。",
                     "把所有写入、删除、登录或命令执行动作交给人工确认。",
@@ -53,30 +98,21 @@ class SafetyReviewer:
                 risk_reasons.append("需求可能读取代码库，应限制读取范围并避免自动写入。")
             if requirement.requires_external_service:
                 risk_reasons.append("需求可能连接外部服务，应人工检查账号和网络权限。")
-            return SafetyReviewResult(
-                allowed=True,
+            return RiskAssessment(
                 risk_level="medium",
-                risk_reasons=_dedupe(risk_reasons),
+                safety_score=0.55,
+                risk_reasons=dedupe_preserve_order(risk_reasons),
+                allowed=True,
                 safe_alternatives=[
                     "保持 Skill 为说明、模板和检查清单，不自动连接外部系统。",
                     "需要外部工具时，只给出人工配置建议。",
                 ],
             )
 
-        return SafetyReviewResult(
-            allowed=True,
+        return RiskAssessment(
             risk_level="low",
+            safety_score=1.0,
             risk_reasons=["未发现明显的高危权限、敏感凭据或不可逆操作。"],
+            allowed=True,
             safe_alternatives=[],
         )
-
-
-def _dedupe(values: list[str]) -> list[str]:
-    seen: set[str] = set()
-    deduped: list[str] = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        deduped.append(value)
-    return deduped

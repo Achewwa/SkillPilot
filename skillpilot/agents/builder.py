@@ -2,13 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol
 
-from skillpilot.builders.packaging_advisor import PackagingAdvisor
-from skillpilot.builders.question_planner import DetailOptionGenerator, QuestionPlanner
-from skillpilot.builders.safety_reviewer import SafetyReviewer
-from skillpilot.builders.skill_builder import SkillBuilder
-from skillpilot.builders.skill_spec_generator import SkillSpecGenerator
 from skillpilot.models import (
     BuilderSession,
     BuilderTurn,
@@ -19,28 +13,29 @@ from skillpilot.models import (
     SkillDraftResult,
     TypeClassification,
 )
+from skillpilot.skills.builder.packaging_advisor import PackagingAdvisor
+from skillpilot.skills.builder.question_planner import DetailOptionGenerator, QuestionPlanner
+from skillpilot.skills.builder.safety_reviewer import SafetyReviewer
+from skillpilot.skills.builder.skill_builder import SkillBuilder
+from skillpilot.skills.builder.skill_spec_generator import SkillSpecGenerator
+from skillpilot.skills.core import LLMProvider
 
 AnswerProvider = Callable[[ClarificationQuestion], str]
-
-
-class BuilderLLM(Protocol):
-    def generate(self, prompt: str) -> Any:
-        ...
 
 
 class SkillBuilderAgent:
     def __init__(
         self,
         generated_skills_dir: Path,
-        llm: BuilderLLM | None = None,
+        llm: LLMProvider | None = None,
         max_rounds: int = 3,
     ) -> None:
         option_generator = DetailOptionGenerator(llm)
         self.question_planner = QuestionPlanner(llm, option_generator)
         self.spec_generator = SkillSpecGenerator(llm)
-        self.safety_reviewer = SafetyReviewer()
+        self.safety_reviewer = SafetyReviewer(llm)
         self.packaging_advisor = PackagingAdvisor()
-        self.builder = SkillBuilder(generated_skills_dir)
+        self.builder = SkillBuilder(generated_skills_dir, llm)
         self.max_rounds = max(1, max_rounds)
 
     def build(

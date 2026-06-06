@@ -7,6 +7,7 @@ import typer
 from rich.console import Console
 
 from skillpilot.agent import SkillPilotAgent
+from skillpilot.agents.core import PipelineContext
 from skillpilot.config import load_config
 from skillpilot.models import ClarificationQuestion
 
@@ -17,6 +18,7 @@ app = typer.Typer(
     no_args_is_help=False,
 )
 console = Console()
+_last_previewed_decision: str | None = None
 
 
 class DemoCase(str, Enum):
@@ -59,6 +61,54 @@ def _print_result(result) -> None:
             )
         if result.skill_draft.warnings:
             console.print(f"  Warning: {result.skill_draft.warnings[0]}", markup=False)
+
+
+def _print_decision_preview(context: PipelineContext) -> None:
+    global _last_previewed_decision
+
+    decision = context.require_decision()
+    if decision.decision_type == "recommend_existing":
+        _last_previewed_decision = None
+        return
+
+    signature = f"{id(context)}:{decision.decision_type}:{decision.reason}"
+    if signature == _last_previewed_decision:
+        return
+    _last_previewed_decision = signature
+
+    console.print("\n[bold]Decision stage completed[/bold]")
+    console.print(f"Decision: {decision.decision_type}", markup=False)
+    console.print(f"Reason: {decision.reason}", markup=False)
+    console.print(
+        f"Evaluated candidates: {len(context.evaluations)}",
+        markup=False,
+    )
+    if context.evaluations:
+        best = context.evaluations[0]
+        console.print(
+            (
+                "Best candidate: "
+                f"{best.candidate.name} "
+                f"(score={best.match_score}, risk={best.risk_level})"
+            ),
+            markup=False,
+        )
+        if best.missing_capabilities:
+            console.print(
+                f"Missing capabilities: {'、'.join(best.missing_capabilities)}",
+                markup=False,
+            )
+        if best.risk_reasons:
+            console.print(f"Risk reason: {best.risk_reasons[0]}", markup=False)
+    successful_reads = sum(1 for item in context.retrieved_contents if item.status == "success")
+    if context.retrieved_contents:
+        console.print(
+            f"Read results: {successful_reads}/{len(context.retrieved_contents)} succeeded",
+            markup=False,
+        )
+    if context.report_path:
+        console.print(f"Interim report: {context.report_path}", markup=False)
+    console.print("Entering SkillBuilder because the decision requires a custom Skill draft.")
 
 
 def _answer_builder_question(question: ClarificationQuestion) -> str:
@@ -119,6 +169,7 @@ def _interactive_session() -> None:
                 user_input.removeprefix("/build ").strip(),
                 interactive_builder=True,
                 answer_provider=_answer_builder_question,
+                decision_observer=_print_decision_preview,
             )
             _print_result(result)
             continue
@@ -134,6 +185,7 @@ def _interactive_session() -> None:
             user_input,
             interactive_builder=True,
             answer_provider=_answer_builder_question,
+            decision_observer=_print_decision_preview,
         )
         _print_result(result)
 
@@ -159,6 +211,7 @@ def build_skill(requirement: str) -> None:
         requirement,
         interactive_builder=True,
         answer_provider=_answer_builder_question,
+        decision_observer=_print_decision_preview,
     )
     _print_result(result)
 

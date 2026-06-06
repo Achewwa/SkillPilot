@@ -20,6 +20,7 @@ class ClaudeCliLLM:
 
     def generate(self, prompt: str) -> LLMResponse:
         command = [self.config.claude_command, "-p"]
+        command.extend(["--model", self.config.claude_model])
         if self.config.disable_tools:
             command.extend(["--tools", ""])
         if self.config.no_session_persistence:

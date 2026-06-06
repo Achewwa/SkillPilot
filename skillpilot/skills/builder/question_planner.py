@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Protocol
+from typing import Any
 
 from skillpilot.models import (
     BuilderTurn,
@@ -9,29 +9,15 @@ from skillpilot.models import (
     ClarificationQuestion,
     ParsedRequirement,
 )
-
-
-class BuilderLLM(Protocol):
-    def generate(self, prompt: str) -> Any:
-        ...
+from skillpilot.skills.core import LLMProvider
+from skillpilot.utils import extract_json_object
 
 
 class DetailOptionGenerator:
     """Generate three concrete answer options while keeping free text available."""
 
-    def __init__(self, llm: BuilderLLM | None = None) -> None:
+    def __init__(self, llm: LLMProvider | None = None) -> None:
         self.llm = llm
-
-    def options_for(
-        self,
-        question: ClarificationQuestion,
-        requirement: ParsedRequirement,
-    ) -> list[ClarificationOption]:
-        if self.llm is not None:
-            options = self._options_with_llm(question, requirement)
-            if len(options) == 3:
-                return options
-        return self._fallback_options(question, requirement)
 
     def ensure_three_options(
         self,
@@ -183,7 +169,7 @@ class DetailOptionGenerator:
 class QuestionPlanner:
     def __init__(
         self,
-        llm: BuilderLLM | None = None,
+        llm: LLMProvider | None = None,
         option_generator: DetailOptionGenerator | None = None,
     ) -> None:
         self.llm = llm
@@ -283,13 +269,4 @@ class QuestionPlanner:
 
 
 def _extract_json(text: str) -> str:
-    stripped = text.strip()
-    if stripped.startswith("```"):
-        stripped = stripped.strip("`").strip()
-        if stripped.startswith("json"):
-            stripped = stripped.removeprefix("json").strip()
-    start = stripped.find("{")
-    end = stripped.rfind("}")
-    if start == -1 or end == -1 or end < start:
-        raise ValueError("LLM response did not contain a JSON object.")
-    return stripped[start : end + 1]
+    return extract_json_object(text)

@@ -1,321 +1,475 @@
 # SkillPilot Project Info
 
-不要为任何特例加上任何专门兜底选项。
+本文件用于跨窗口同步 SkillPilot 的当前项目状态、实现逻辑、运行方式和后续开发注意事项。
 
-This file is the project memory file for cross-window synchronization. Update it whenever project scope, progress, environment, or next actions change.
+## 项目定位
 
-## Project Summary
+SkillPilot 是一个用 Python 手动搭建的轻量级 LLM 智能体项目，面向 Claude 扩展生态中的 Skill、Claude Code Plugin、MCP Server 和混合方案选择问题。
 
-SkillPilot is a Python-based lightweight agent for Claude extension discovery and construction. Given a user requirement, it should decide whether Skill, Plugin, MCP, or a mixed solution is appropriate, evaluate candidate resources, explain safety risks, and generate either a recommendation report or a custom Skill draft.
+给定用户自然语言需求后，系统会完成需求理解、扩展类型判断、固定来源检索、内容读取、候选资源评分、安全风险判断、推荐报告输出，以及必要时的自定义 Skill 草案生成。
 
-The project is for a course assignment on large language model agents. The current implementation direction is to build the agent workflow manually in Python rather than using mature agent frameworks.
+项目用于《大语言模型与信息决策》课程展示。核心原则是自行实现 agent 工作流和 skill 调度，不依赖 LangChain、CrewAI、AutoGPT 等成熟智能体框架。
 
-## Important Constraints
+## 当前实现原则
 
-- Use Python as the main implementation language.
-- Do not rely on LangChain, CrewAI, AutoGPT, or other mature agent frameworks for the core workflow.
-- Prioritize a complete, explainable, demonstrable agent loop over broad real-time search coverage.
-- The MVP should be CLI-first.
-- Do not automatically install third-party Claude Code plugins, MCP servers, or third-party scripts.
-- Do not automatically execute untrusted shell commands from candidate resources.
-- Prioritize real network search for candidate discovery. Cached data should not be the main implementation path.
-- For classroom demos, record successful real-search runs in advance instead of relying on offline cache fixtures.
-- The previous fixed schedule is invalid. Progress should follow the user's actual pace.
+- Python 是主实现语言。
+- CLI 是主要交互界面。
+- 核心结构是 `pipeline-agent-skill`。
+- LLM 负责语义理解、结构化判断、候选原文评分、决策解释和 Skill 内容生成。
+- 确定性逻辑负责 URL 解析、配置读取、文件写入、枚举校验、读取上限、评分聚合和高风险 guardrail。
+- 不自动安装第三方 Plugin、MCP Server、脚本或仓库代码。
+- 不自动执行候选资源中的 shell 命令。
+- 不在项目中保存 API key、token 或 endpoint。
+- 不为任何特例添加专门兜底选项；兜底逻辑应保持通用、可解释、可测试。
 
-## Completed
-
-- Connected to the WSL project directory: `/home/achewwa/Projects/SkillPilot`.
-- Read the course requirement PDF: `info.pdf`.
-- Read the original project draft: `project_draft.md`.
-- Established the initial project direction: SkillPilot as a search, evaluation, recommendation, and custom Skill building agent.
-- Created conda environment `skill_pilot` at `/home/achewwa/miniconda3/envs/skill_pilot`.
-- Installed initial Python dependencies in `skill_pilot`:
-  - `httpx`
-  - `requests`
-  - `beautifulsoup4`
-  - `pydantic`
-  - `typer`
-  - `rich`
-  - `python-dotenv`
-  - `markdownify`
-  - `pyyaml`
-  - `openai`
-  - `PyGithub`
-  - `pypdf`
-  - `pytest`
-  - `pytest-cov`
-- Verified the environment with Python `3.11.15` and successful imports.
-- Updated WSL Claude Code settings to use the configured third-party endpoint.
-- Verified WSL `claude -p` can return `OK` with the current configuration.
-- Created `README.md` for project introduction.
-- Created this `project_info.md` file for cross-window synchronization.
-- Added the runnable Python skeleton:
-  - `pyproject.toml`
-  - `main.py`
-  - `skillpilot/` package
-  - CLI commands for `recommend`, `build-skill`, and `demo`
-  - Pydantic models for requirements, candidates, evaluations, decisions, and traces
-  - Stub pipeline for parsing, classification, source planning, cache loading, evaluation, and decision gating
-  - Local demo cache under `data/`
-  - Markdown report and JSON decision trace writers
-  - Placeholder custom Skill draft builder
-- Added a base LLM adapter that defaults to the WSL-local `claude` CLI, reusing the existing Claude Code configuration instead of hardcoding secrets or endpoints.
-- Added smoke tests for CLI help, recommendation output, Skill draft generation, and demo cases.
-- Added an interactive CLI session: running `python main.py` now accepts natural language directly, with `/build`, `/demo`, `/help`, and `/exit` shortcuts.
-- Verified `conda run -n skill_pilot python -m pytest` passes with 9 tests.
-- Verified the skeleton commands can generate `outputs/recommendation_report.md`, `outputs/decision_trace.json`, and `generated_skills/homework-knowledge-hint/`.
-- Implemented Stage 2.1 and 2.2:
-  - Added unified `SearchQuery` and `SearchResult` models.
-  - Added `WebSearchTool`, `GitHubSearchTool`, and an environment-gated `SearchExecutor`.
-  - Added explicit proxy support through `SKILLPILOT_HTTP_PROXY` / `SKILLPILOT_HTTPS_PROXY`.
-  - Upgraded `SourcePlanner` to generate 3 to 5 targeted web/GitHub queries for Skill, MCP, Plugin, mixed, and unknown needs.
-  - Search plans and search execution statuses are now saved in `outputs/decision_trace.json`, shown in the recommendation report, and summarized in CLI output.
-  - Verified proxied network search for `阅读pdf的插件`, finding real web results such as `ZSHYC/pdf-master`.
-- Created feature branch `feature/stage2-reading-extraction` for Stage 2.3 and 2.4 work.
-- Implemented Stage 2.3 and 2.4:
-  - Added structured `RetrievedContent` records for page/repository reads.
-  - Added `PageReader` for ordinary documentation pages.
-  - Added `RepoReader` for GitHub repositories, using the GitHub API for repository metadata, README content, and common files such as `SKILL.md`, `.mcp.json`, `package.json`, and `pyproject.toml`.
-  - Added `ContentReader` to route search results to the correct reader, deduplicate URLs, preserve skipped/failed reads, and avoid breaking the whole pipeline when one read fails.
-  - Added an initial rule-based `CandidateExtractor` to convert retrieved content into the shared `Candidate` model.
-  - Later removed the rule-based `CandidateExtractor` from the main pipeline. The current pipeline sends successful `RetrievedContent` directly to the LLM evaluator, which reads the candidate raw content and returns candidate fields plus capability, documentation, and safety scores in one step.
-  - Updated the pipeline to prefer real search/read content, falling back to the local demo cache only for offline/skipped runs.
-  - Updated CLI/report/trace output to include page and repository read status.
-- Verified Stage 2.3/2.4 with `conda run -n skill_pilot python -m pytest`: 12 tests passed.
-- Verified a proxied real-search run for `阅读pdf的插件`; it found and read `https://github.com/ZSHYC/pdf-master`, extracted it as a plugin candidate, and wrote evidence into `outputs/recommendation_report.md`.
-- Changed network search to be enabled by default. Set `SKILLPILOT_ENABLE_NETWORK_SEARCH=0` only when an offline run is needed.
-- Re-verified with `conda run -n skill_pilot python -m pytest`: 13 tests passed.
-- Created feature branch `feature/stage2-evaluation-decision-demo` for Stage 2.5, 2.6, and 2.7 work.
-- Implemented Stage 2.5, 2.6, and 2.7:
-  - Added weighted candidate evaluation with explicit component scores:
-    - capability match: 45%
-    - type match: 15%
-    - documentation quality: 20%
-    - safety risk: 20%
-  - Switched candidate capability, documentation, and safety scoring to LLM-assisted structured JSON evaluation.
-  - Kept type matching as a deterministic rule score.
-  - Added high-risk decision gating: high match candidates with write, command execution, or token/API-key risks are not directly recommended for installation.
-  - Expanded the Chinese recommendation report with component scores, matched/missing capabilities, risk reasons, failed queries/URLs, and safety alternatives.
-  - Adjusted cache fallback so local demo cache is used for offline/skipped runs, while real-search runs with insufficient evidence clearly enter the custom Skill path.
-  - Added focused tests for weighted evaluation, high-risk decisions, no-candidate custom Skill fallback, and report failure handling.
-- Verified Stage 2.5/2.6/2.7 with `conda run -n skill_pilot python -m pytest`: 17 tests passed.
-- Verified a proxied real-search run for `阅读pdf的插件`; it found and read real GitHub results including `https://github.com/ZSHYC/pdf-master`, recorded failed/no-result queries, scored candidates, and chose the safer custom Skill path because the best candidates had high-risk permission or token signals.
-- Fixed an evaluation false positive where guide or marketplace overview pages could be treated as installable plugin candidates.
-  - Candidate capability, dependency, permission, and type extraction no longer uses the search query text as candidate evidence.
-  - Ordinary web guide/list/overview pages such as "Claude Code 插件完全指南" are skipped as non-candidate pages.
-  - Added a regression test for skipping plugin guide pages.
-- Re-verified with `conda run -n skill_pilot python -m pytest`: 18 tests passed.
-- Refined Stage 2.1/2.2 source planning after source research:
-  - Added structured `SearchSource` records and a curated `SourceCatalog`.
-  - Current high-priority Skill sources: `anthropic_skills_repo`, `anthropic_agent_skills_docs`, `anthropic_skills_cookbook`, `skillsmp_directory`.
-  - Current high-priority MCP sources: `official_mcp_registry`, `glama_mcp`, `smithery_mcp`.
-  - Current high-priority Plugin sources: `anthropic_official_plugin_marketplace`, `anthropic_community_plugin_marketplace`, `anthropic_demo_plugin_marketplace`, `ccplugins_awesome_marketplace`.
-  - `SearchPlan.sources` now records source id, kind, trust level, entry URLs, data format, reader type, and searcher type.
-  - `SearchQuery`, `SearchResult`, and `RetrievedContent` can preserve `source_id` for source-level traceability.
-  - CLI and reports now show planned sources in addition to queries/results.
-  - Added `docs/stage_2_3_source_access.md` to guide Stage 2.3 source-specific readers for docs, marketplace JSON, GitHub trees, and MCP registry APIs.
-- Re-verified source catalog planning with `conda run -n skill_pilot python -m pytest`: 18 tests passed.
-- Added SkillsMP as a community Skill directory/API source:
-  - Source id: `skillsmp_directory`.
-  - Web search page: `https://skillsmp.com/search?q={query}`.
-  - API docs: `https://skillsmp.com/docs/api`.
-  - OpenAPI spec: `https://skillsmp.com/openapi.json`.
-  - API endpoint: `https://skillsmp.com/api/v1/skills/search`.
-  - Anonymous API limits documented by SkillsMP: 50 requests/day and 10 requests/min.
-  - Search hits are treated as provisional GitHub-backed Skill discoveries and must be verified by reading the returned GitHub source before recommendation.
-- Disabled the old broad DuckDuckGo-style web search path. Search planning now uses curated `source` queries from `SourceCatalog`; unsupported source-specific readers/searchers are recorded as skipped instead of falling back to generic web search.
-- Re-verified with `conda run -n skill_pilot python -m pytest`: 19 tests passed.
-- Verified a proxied source-specific Skill run for `阅读pdf的skill`; `skillsmp_directory` returned GitHub-backed Skill results, the pipeline read 3 successful repositories, and the run produced `recommend_existing`.
-- Replaced keyword-rule requirement capability extraction with LLM structured extraction:
-  - `RequirementParser` now calls the configured LLM and expects strict JSON for `task_domain`, `desired_capabilities`, operational booleans, and `risk_tolerance`.
-  - The parser no longer uses keyword rules such as `pdf -> pdf_reading`; capabilities come from LLM output.
-  - If the LLM is unavailable or returns invalid JSON, parsing falls back to a generic safe requirement with `general_guidance`, not rule-derived capabilities.
-  - `SkillPilotPipeline` now injects the shared LLM adapter into `RequirementParser`.
-  - Added `static_json` LLM provider for offline CLI smoke tests and deterministic test runs.
-- Re-verified LLM parser changes with `conda run -n skill_pilot python -m pytest`: 22 tests passed.
-- Re-read `docs/stage_2_3_source_access.md` and synchronized the Stage 2.1/2.2 understanding:
-  - Source planning is now based on curated source pools rather than broad web/GitHub search pools.
-  - Search execution now groups queries by `source_id`, dispatches one lightweight `SourceSearchAgent` per source, runs source agents concurrently, and aggregates results back in planned source order.
-  - Source-agent results preserve `source_id` and `search_agent` metadata for traceability.
-- Re-verified with `conda run -n skill_pilot python -m pytest`: 20 tests passed.
-- Removed the rule-based `CandidateExtractor` from the main implementation:
-  - Successful `RetrievedContent` now goes directly into `CandidateEvaluator`.
-  - The LLM reads the retrieved raw content and returns candidate fields plus capability, documentation, safety, risk, and reason fields in one structured response.
-  - The CLI now prints only the top recommendation summary; the full search/read/evaluation detail remains in `outputs/recommendation_report.md`.
-  - `ClaudeCliLLM` now sends prompts through stdin and only passes a budget argument when `SKILLPILOT_CLAUDE_MAX_BUDGET_USD` is explicitly set.
-- Re-verified with `conda run -n skill_pilot python -m pytest`: 25 tests passed.
-- Verified a proxied real run for `制作海报的skill`; LLM direct raw-content scoring selected `canvas-design` and produced `recommend_existing`.
-- Re-read project documentation after source-planning changes and refined Stage 2.5 scoring:
-  - Candidate scoring no longer includes a trust/maintenance component because discovery now uses fixed curated sources.
-  - LLM structured evaluation now scores capability match, documentation quality, and safety risk.
-  - Type match remains a deterministic rule score because it is a direct comparison between classified target type and candidate type.
-  - New scoring weights: capability 45%, type 15%, documentation 20%, safety 20%.
-  - `SKILLPILOT_ENABLE_LLM_EVALUATION=0` can disable LLM scoring for deterministic tests; normal runtime defaults to enabled.
-- Created feature branch `feature/stage3-skillbuilder-agent` for the Stage 3 SkillBuilder Agent work.
-- Implemented the first dynamic SkillBuilder Agent path:
-  - Added builder models for clarification questions, three detail options, builder turns/sessions, Skill specs, resource specs, and safety review results.
-  - Added `SkillBuilderAgent` with explicit clarification, reflection, spec generation, safety review, and file generation phases.
-  - Added a dedicated question generation module and option generation module. Each clarification question now carries three selectable detail options while preserving free-text answers.
-  - Replaced the fixed `homework-knowledge-hint` pipeline call with dynamic Skill generation based on `SkillSpec.slug`.
-  - Added `SKILLPILOT_BUILDER_INTERACTIVE` and `SKILLPILOT_BUILDER_MAX_ROUNDS` configuration.
-  - Extended CLI `build-skill` and `/build` to show builder questions, numbered options, and free-text answer prompts.
-  - Extended reports and traces with builder session, clarification answers, generated files, and safety review results.
-  - Added tests for option generation, custom-answer collection, dynamic Skill output, and high-risk safety blocking.
-- Updated the SkillBuilder question-generation prompt so each generated question must also include three related options to improve understanding of the user's requirement.
-  - Do not add special-case fallback options for any scenario.
-  - Kept free-text answers available alongside numbered options.
-- Verified SkillBuilder Agent changes with `conda run -n skill_pilot python -m pytest`: 28 tests passed.
-
-## Current Stage 2.1 / 2.2 Runtime Output Format
-
-When running a recommendation command, the CLI now prints the final decision plus the search-stage intermediate results:
+## 当前代码结构
 
 ```text
-Decision: <decision_type>
-Planned sources: <count>
-  - <source_id> (<source_kind>, <trust_level>)
-Search queries: <count>
-  1. [source source=<source_id>] <query text>
-Search results: <count>
-  - [source|github/<source_id>/success|no_results|failed|skipped] <title or query>
-    <url or error message>
-Report: outputs/recommendation_report.md
-Trace: outputs/decision_trace.json
-Skill draft: generated_skills/<skill-name>
+SkillPilot/
+  main.py
+  pyproject.toml
+  README.md
+  project_info.md
+  data/
+    candidate_cache.json
+    demo_cases.json
+  docs/
+    pipeline_agent_skill_mapping.md
+    stage_2_3_source_access.json
+  skillpilot/
+    agent.py
+    cli.py
+    config.py
+    llm.py
+    models.py
+    pipeline.py
+    safety.py
+    scoring.py
+    utils.py
+    agents/
+      core.py
+      requirement.py
+      discovery.py
+      evaluation.py
+      decision.py
+      builder.py
+      report.py
+    skills/
+      core.py
+      requirement.py
+      classification.py
+      planning.py
+      cache.py
+      evaluation.py
+      decision.py
+      report.py
+      discovery/
+        source_catalog.py
+        source_access_guide.py
+        search_tools.py
+        readers.py
+      builder/
+        question_planner.py
+        skill_spec_generator.py
+        safety_reviewer.py
+        packaging_advisor.py
+        skill_builder.py
+        skill_md_writer.py
+        skill_structure_planner.py
+        resource_generator.py
+  tests/
 ```
 
-`outputs/recommendation_report.md` now includes:
+`skillpilot/agents/` 只放 Agent 编排逻辑。  
+`skillpilot/skills/` 放可被 Agent 调用的能力模块。  
+项目代码入口集中在 `skillpilot/agents/`、`skillpilot/skills/`、`skillpilot/pipeline.py` 和 `skillpilot/cli.py`。
 
-- 用户需求理解
-- 扩展类型判断
-- 搜索计划
-- 搜索结果
-- 候选资源与评分
-- 决策结果
-- 安全提示
+## Pipeline
 
-`outputs/decision_trace.json` now includes structured `search_plan.queries` and `search_results` entries. Each search result preserves title, URL, snippet, source type, original query, status, error message, and metadata when available.
+主入口是 `skillpilot.pipeline.SkillPilotPipeline`。
 
-Network search is enabled by default. It can be controlled by environment variables:
+当前 pipeline 顺序：
+
+1. 创建 `PipelineContext`。
+2. `RequirementAnalysisAgent` 解析需求、判断扩展类型、规划搜索。
+3. `SourceDiscoveryAgent` 执行 source-aware 搜索并读取页面或仓库内容。
+4. `CandidateEvaluationAgent` 评分候选资源；在离线或全部跳过搜索时可读取本地缓存。
+5. `DecisionAgent` 根据候选分数和风险等级做最终决策。
+6. 当决策需要构造 Skill 时，`SkillBuilderAgent` 生成自定义 Skill 草案。
+7. `ReportAgent` 写出 Markdown 推荐报告。
+8. `RecommendationWriter` 写出 JSON 决策轨迹。
+
+`PipelineContext` 保存整次运行的共享状态，包括需求、分类、搜索计划、搜索结果、读取内容、候选评分、决策、Skill 草案、报告路径、trace 路径和 agent/skill trace events。
+
+## Agents
+
+### RequirementAnalysisAgent
+
+文件：`skillpilot/agents/requirement.py`
+
+调用的 skills：
+
+- `RequirementParser`
+- `ExtensionTypeClassifier`
+- `SourcePlanner`
+
+职责：
+
+- 将自然语言需求转换成 `ParsedRequirement`。
+- 判断目标扩展类型：`skill`、`mcp`、`plugin`、`mixed` 或 `unknown`。
+- 根据扩展类型和需求能力生成 `SearchPlan`。
+
+### SourceDiscoveryAgent
+
+文件：`skillpilot/agents/discovery.py`
+
+调用的 skills：
+
+- `SearchExecutor`
+- `SourceSearchAgent`
+- `SourceSearchTool`
+- `ContentReader`
+- `PageReader`
+- `RepoReader`
+
+职责：
+
+- 按 `SearchPlan` 执行固定来源搜索。
+- 将查询按 `source_id` 分组，并发调度 source-level search agent。
+- 保留搜索成功、失败、无结果、跳过等状态。
+- 读取成功搜索结果中的页面或 GitHub 仓库内容。
+- 保留读取状态、错误信息、元数据和截断后的正文。
+
+### CandidateEvaluationAgent
+
+文件：`skillpilot/agents/evaluation.py`
+
+调用的 skills：
+
+- `CandidateEvaluator`
+- `LocalCandidateCache`
+
+职责：
+
+- 让 LLM 直接阅读 `RetrievedContent.content`。
+- 生成候选名称、类型、描述、能力、安装线索、依赖、权限、维护信息和证据。
+- 输出能力分、文档分、安全分、风险等级、风险原因和评分理由。
+- 使用评分权重聚合最终分数。
+- 在网络搜索关闭或全部跳过时使用本地候选缓存。
+
+### DecisionAgent
+
+文件：`skillpilot/agents/decision.py`
+
+调用的 skill：
+
+- `DecisionGate`
+
+职责：
+
+- 当没有足够候选或分数过低时，进入自定义 Skill 草案流程。
+- 当候选高风险时，不直接推荐安装，转向更安全的自定义 Skill 或人工审查建议。
+- 当候选分数较高且风险可接受时，推荐现有资源。
+- 当候选中等相关时，推荐参考现有资源并补充自定义 Skill。
+- 可以调用 LLM 生成更清晰的中文决策原因，但不允许 LLM 改变确定性 decision type。
+
+### SkillBuilderAgent
+
+文件：`skillpilot/agents/builder.py`
+
+调用的 skills：
+
+- `DetailOptionGenerator`
+- `QuestionPlanner`
+- `SkillSpecGenerator`
+- `SafetyReviewer`
+- `PackagingAdvisor`
+- `SkillBuilder`
+- `SkillMdWriter`
+- `SkillStructurePlanner`
+- `ResourceGenerator`
+
+职责：
+
+- 根据需求和决策进入 Skill 构造流程。
+- 最多进行配置指定轮数的澄清问答。
+- 每个澄清问题提供三个可选细节选项，同时保留自由文本回答。
+- 生成 `SkillSpec`，包括名称、slug、描述、触发条件、工作流、约束、输出格式、资源文件和示例文件。
+- 做 Skill 安全审查。
+- 生成 `SKILL.md`、`resources/`、`examples/`、`README.md` 等文件。
+- 高风险请求会写出 `SAFE_DESIGN.md`，而不是生成完整可用 Skill。
+
+### ReportAgent
+
+文件：`skillpilot/agents/report.py`
+
+调用的 skill：
+
+- `RecommendationWriter`
+
+职责：
+
+- 写出 `outputs/recommendation_report.md`。
+- 写出 `outputs/decision_trace.json`。
+- 记录 report 和 trace 写入事件。
+
+## Skills
+
+核心 skill 文件：
+
+- `skillpilot/skills/requirement.py`：需求解析。
+- `skillpilot/skills/classification.py`：扩展类型判断。
+- `skillpilot/skills/planning.py`：搜索源和查询规划。
+- `skillpilot/skills/cache.py`：本地候选缓存读取。
+- `skillpilot/skills/evaluation.py`：候选理解、评分和风险解释。
+- `skillpilot/skills/decision.py`：决策 gate 和决策原因。
+- `skillpilot/skills/report.py`：报告和 trace 写入。
+
+Discovery skills：
+
+- `skillpilot/skills/discovery/source_catalog.py`
+- `skillpilot/skills/discovery/source_access_guide.py`
+- `skillpilot/skills/discovery/search_tools.py`
+- `skillpilot/skills/discovery/readers.py`
+
+Builder skills：
+
+- `skillpilot/skills/builder/question_planner.py`
+- `skillpilot/skills/builder/skill_spec_generator.py`
+- `skillpilot/skills/builder/safety_reviewer.py`
+- `skillpilot/skills/builder/resource_generator.py`
+- `skillpilot/skills/builder/skill_builder.py`
+- `skillpilot/skills/builder/skill_md_writer.py`
+- `skillpilot/skills/builder/skill_structure_planner.py`
+- `skillpilot/skills/builder/packaging_advisor.py`
+
+## 数据模型
+
+主要 Pydantic 模型在 `skillpilot/models.py`：
+
+- `ParsedRequirement`
+- `TypeClassification`
+- `SearchSource`
+- `SearchQuery`
+- `SearchResult`
+- `RetrievedContent`
+- `SearchPlan`
+- `Candidate`
+- `CandidateEvaluation`
+- `Decision`
+- `AgentSkillTraceEvent`
+- `BuilderSession`
+- `BuilderTurn`
+- `ClarificationQuestion`
+- `ClarificationOption`
+- `SkillSpec`
+- `SkillResourceSpec`
+- `SafetyReviewResult`
+- `SkillDraftResult`
+- `AgentRunResult`
+
+这些模型同时服务于 pipeline 内部状态、报告输出、JSON trace 和测试断言。
+
+## 搜索源
+
+固定源目录在 `skillpilot/skills/discovery/source_catalog.py`。
+
+当前覆盖：
+
+- Skill 来源：
+  - `anthropic_skills_repo`
+  - `anthropic_agent_skills_docs`
+  - `anthropic_skills_cookbook`
+  - `skillsmp_directory`
+- MCP 来源：
+  - `official_mcp_registry`
+  - `glama_mcp`
+  - `smithery_mcp`
+- Plugin 来源：
+  - `anthropic_official_plugin_marketplace`
+  - `anthropic_community_plugin_marketplace`
+  - `anthropic_demo_plugin_marketplace`
+  - `ccplugins_awesome_marketplace`
+
+`SourcePlanner` 只基于这些固定 source 生成 source-aware 查询。搜索结果和读取内容都会保留 `source_id`，便于 trace 和报告解释。
+
+Source-specific 网页/API 搜索由 `docs/stage_2_3_source_access.json` 指导。JSON 中每个 `source_id` 对应一个结构化条目，包含 `searcher_type`、`reader_type`、`entrypoint`、`content_format`、`query_parameters`、`result_mapping`、`detail_reading`、`risk_notes` 和 `failure_handling`。运行时 `SourceAccessGuideLoader` 根据查询的 `source_id` 取出对应条目，`SourceSearchTool` 再按 `searcher_type` 分发到可复用搜索器：
+
+- `skillsmp_api_searcher`
+- `marketplace_json_searcher`
+- `docs_keyword_searcher`
+- `github_contents_searcher`
+- `mcp_registry_api_searcher`
+- `glama_api_searcher`
+- `smithery_api_searcher`
+
+这样新增或调整搜索源时，优先更新 JSON 中的 source metadata 和网页/API 访问指导；Python 中只保留少量通用搜索器和 dispatcher。
+
+## 评分与决策
+
+评分权重在 `skillpilot/scoring.py`：
+
+- capability match：45%
+- type match：15%
+- documentation quality：20%
+- safety risk：20%
+
+其中 capability、documentation、safety 主要来自 LLM 结构化评分；type match 是确定性比较。最终候选按 `match_score` 降序排列。
+
+风险策略在 `skillpilot/safety.py`。涉及命令执行、写文件、删除、hook、token、API key、数据库、远程写操作等能力时，会提高风险等级并降低 safety score。
+
+## LLM 配置
+
+默认 provider：`claude_cli`。
+
+适配层文件：`skillpilot/llm.py`。
+
+`ClaudeCliLLM` 通过 stdin 向本地 `claude -p` 发送 prompt，并默认关闭工具和会话持久化。项目复用本机 Claude CLI 配置，不保存密钥。当前默认显式传入模型 `claude-sonnet-4-6`。
+
+可选 provider：
+
+- `claude_cli`：实际运行使用。
+- `static_json`：离线测试或 smoke run 使用，返回固定 JSON。
+
+常用环境变量：
 
 ```bash
-SKILLPILOT_ENABLE_NETWORK_SEARCH=0  # optional: disable network search for offline tests
-SKILLPILOT_HTTP_PROXY=http://172.22.0.1:7890
+SKILLPILOT_LLM_PROVIDER=claude_cli
+SKILLPILOT_CLAUDE_COMMAND=claude
+SKILLPILOT_CLAUDE_MODEL=claude-sonnet-4-6
+SKILLPILOT_CLAUDE_MAX_BUDGET_USD=0.05
+SKILLPILOT_CLAUDE_DISABLE_TOOLS=1
+SKILLPILOT_CLAUDE_NO_SESSION=1
+SKILLPILOT_ENABLE_LLM_EVALUATION=1
+```
+
+## 搜索与 Builder 配置
+
+搜索配置在 `skillpilot/config.py`：
+
+```bash
+SKILLPILOT_ENABLE_NETWORK_SEARCH=1
 SKILLPILOT_SEARCH_TIMEOUT_SECONDS=8
-SKILLPILOT_SEARCH_MAX_RESULTS=3
+SKILLPILOT_SEARCH_MAX_RESULTS=5
+SKILLPILOT_SEARCH_USER_AGENT=SkillPilot/0.1
+SKILLPILOT_HTTP_PROXY=http://172.22.0.1:7890
+SKILLPILOT_HTTPS_PROXY=http://172.22.0.1:7890
+GITHUB_TOKEN=<optional>
+GH_TOKEN=<optional>
 ```
 
-Example tested command:
+GitHub token 优先读取 `GITHUB_TOKEN` 或 `GH_TOKEN`。如果二者都没有设置，配置层会尝试调用本机 `gh auth token` 复用 GitHub CLI 登录态；token 只在运行时传给 GitHub API，不写入报告或 trace。
+
+Builder 配置：
 
 ```bash
-SKILLPILOT_HTTP_PROXY=http://172.22.0.1:7890 \
-SKILLPILOT_SEARCH_TIMEOUT_SECONDS=8 \
-SKILLPILOT_SEARCH_MAX_RESULTS=3 \
-conda run -n skill_pilot python main.py recommend "阅读pdf的插件"
+SKILLPILOT_BUILDER_INTERACTIVE=1
+SKILLPILOT_BUILDER_MAX_ROUNDS=3
+SKILLPILOT_OUTPUTS_DIR=outputs
+SKILLPILOT_GENERATED_SKILLS_DIR=generated_skills
 ```
 
-## Not Started
+## CLI
 
-- Replace placeholder requirement parsing with LLM-assisted structured extraction.
-- Replace keyword-based Skill / Plugin / MCP classification with a stronger rule + LLM hybrid classifier.
-- Further improve LLM scoring prompts and output validation for capability, documentation, and safety evaluation.
-- Further improve risk analysis by separating read-only local file access from write, token, command execution, and network risks more precisely.
-- Add broader tests beyond smoke coverage.
-- Prepare demo cases, recorded real-search runs, and stable screenshots/video for classroom presentation.
-- Prepare classroom PPT.
-- Prepare final Chinese written report PDF.
-
-## Proposed Next Steps
-
-1. Run smoke tests and demo commands after skeleton changes.
-2. Replace stubs one module at a time, starting with requirement parsing and extension type classification.
-3. Implement real network search as the main second-stage path.
-4. Record successful real-search demo runs for classroom presentation, including terminal output, reports, and screenshots.
-5. Keep local demo data only as development fixtures or test inputs, not as the product's primary candidate source.
-
-## Detailed Stage 2 Plan: Real Search MVP
-
-Stage 2 should be split into small, testable steps. The goal is to replace the skeleton's placeholder candidate path with real web and GitHub discovery while preserving explainability and safety.
-
-### 2.1 Search Interface Layer
-
-- Define unified `SearchQuery` and `SearchResult` models.
-- Implement a `WebSearchTool` for real web search results.
-- Implement a `GitHubSearchTool` for repository search and metadata lookup.
-- Preserve title, URL, snippet, source type, query string, and retrieval status for every result.
-- Add timeout and error handling so failed searches are visible in the decision trace.
-
-### 2.2 Search Planning
-
-- Implement `SourcePlanner` so it expands a user requirement into 3 to 5 targeted search queries.
-- Generate different query patterns for Skill, MCP, Plugin, and mixed needs.
-- Include Claude-specific terms such as `Claude Skill`, `SKILL.md`, `Claude Code plugin`, `MCP server`, `GitHub`, and task-specific capability keywords.
-- Store the generated query plan in `outputs/decision_trace.json`.
-
-### 2.3 Page and Repository Reading
-
-- Implement `PageReader` for ordinary documentation pages.
-- Implement `RepoReader` for GitHub repositories, prioritizing README, description, license, stars, last update, and common config files.
-- Prefer structured GitHub API responses where possible, and fall back to raw README content when needed.
-- Record failed reads without dropping the whole pipeline.
-
-### 2.4 Candidate Understanding
-
-- Do not use a separate rule-based `CandidateExtractor` as the main path.
-- Send successful retrieved content, especially `SKILL.md` and README text, directly to the LLM evaluator.
-- Let the LLM return both candidate fields and scoring fields in one structured JSON response.
-- Keep local fallback scoring only for offline tests or LLM failures.
-
-### 2.5 Evaluation and Ranking
-
-- Use LLM-assisted structured evaluation for candidate quality and safety.
-- Keep type matching as a deterministic score.
-- Use a weighted score for the MVP:
-  - capability match: 45%
-  - type match: 15%
-  - documentation quality: 20%
-  - safety risk: 20%
-- Rank candidates and keep both numeric scores and natural-language reasons.
-
-### 2.6 Decision and Report Generation
-
-- Implement `DecisionGate` rules:
-  - high match and low/medium risk -> recommend existing resource
-  - medium match -> recommend existing resource plus custom Skill supplement
-  - low match -> build custom Skill draft
-  - high risk -> avoid direct installation recommendation and provide safer alternatives
-- Generate a Chinese recommendation report with search queries, candidate evidence, scores, missing capabilities, risks, and final decision.
-- Save a complete `decision_trace.json` for reproducibility.
-
-### 2.7 Failure Handling and Demo Recording
-
-- If search or reading fails, report the exact failed query or URL and continue with remaining results.
-- If no sufficient candidate is found, clearly explain that real search did not find enough evidence and then enter the custom Skill path.
-- Do not fabricate search results for classroom presentation.
-- Prepare classroom demos by recording successful real-search runs in advance, including terminal commands, generated reports, and final artifacts.
-
-## Environment Notes
-
-Activate the environment from WSL:
+入口：
 
 ```bash
-conda activate skill_pilot
-cd /home/achewwa/Projects/SkillPilot
+python main.py
 ```
 
-Claude Code minimal verification command:
+命令：
 
 ```bash
-claude -p --tools '' --no-session-persistence --max-budget-usd 0.05 'Please only output OK'
+python main.py recommend "<需求>"
+python main.py build-skill "<需求>"
+python main.py demo --case skill
+python main.py demo --case mcp
+python main.py demo --case build
 ```
 
-Expected result:
+交互模式指令：
 
 ```text
-OK
+/build <需求>
+/demo skill|mcp|build
+/help
+/exit
 ```
 
-## Source Documents
+## 输出
 
-- `info.pdf`: course requirements.
-- `project_draft.md`: original project draft, used as reference only. It can be modified or reduced as implementation proceeds.
+默认输出路径：
+
+```text
+outputs/recommendation_report.md
+outputs/decision_trace.json
+generated_skills/<skill-slug>/
+```
+
+报告包含需求理解、扩展类型、搜索计划、搜索结果、读取结果、失败处理、候选评分、最终决策、SkillBuilder 构造过程和安全提示。
+
+在交互式 CLI 中，如果决策需要进入 `SkillBuilderAgent`，pipeline 会先写出一版 interim `recommendation_report.md`，CLI 会打印决策阶段摘要，然后再进入 Builder 澄清问答。Builder 完成后，报告会被最终结果覆盖更新。
+
+Trace 保存完整结构化 `AgentRunResult`，包括 `trace_events`。每个 trace event 记录：
+
+- agent
+- skill
+- status
+- summary
+- metadata
+
+## 测试状态
+
+当前测试命令：
+
+```bash
+conda run -n skill_pilot python -m pytest
+```
+
+当前结果：
+
+```text
+41 passed
+```
+
+测试覆盖重点：
+
+- CLI smoke 行为
+- 搜索规划和 source catalog
+- source-specific search executor
+- 页面和 GitHub 仓库读取
+- 候选评估和决策 gate
+- LLM 驱动的分类、查询规划、决策解释和安全审查
+- SkillBuilder 问答、动态 Skill 输出和高风险阻断
+- pipeline trace events
+
+## 当前开发状态
+
+当前工作分支：
+
+```text
+refactor/physical-agent-skill-layout
+```
+
+当前实现已经采用 `agents/` 和 `skills/` 物理结构。`generated_skills/xiaohongshu-collage-composer/` 是未跟踪生成目录，除非明确需要，不应纳入本轮项目结构修改。
+
+## 后续建议
+
+1. 为课堂展示准备 2 到 3 个稳定 demo：
+   - Skill 推荐
+   - MCP 推荐或自定义构造
+   - 直接构造 Skill
+2. 记录成功运行的终端输出、报告和 trace，避免课堂现场依赖不稳定网络。
+3. 根据 demo 结果微调 LLM prompt，使报告中的候选证据和风险说明更清晰。
+4. 为 `SourceSearchTool` 增加更多固定 source 的真实 API reader/searcher。
+5. 为高风险 Skill 构造路径增加更多安全审查测试。
+6. 准备课程 PPT 和最终中文报告。
+
+## 重要文件
+
+- `README.md`：面向用户和展示的项目说明。
+- `project_info.md`：当前项目同步记忆。
+- `docs/pipeline_agent_skill_mapping.md`：当前 pipeline-agent-skill 路径映射。
+- `docs/stage_2_3_source_access.json`：source-specific 网页/API 搜索和读取的结构化运行指南。
+- `data/demo_cases.json`：demo 输入。
+- `data/candidate_cache.json`：离线候选缓存。

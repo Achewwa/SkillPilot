@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from skillpilot.builders.builder_agent import SkillBuilderAgent
-from skillpilot.builders.question_planner import QuestionPlanner
+from skillpilot.agents.builder import SkillBuilderAgent
+from skillpilot.skills.builder.question_planner import QuestionPlanner
 from skillpilot.models import Decision, ParsedRequirement, TypeClassification
 
 

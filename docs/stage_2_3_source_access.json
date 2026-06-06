@@ -1,0 +1,256 @@
+{
+  "version": 1,
+  "description": "Structured source access guide for SkillPilot source-specific searchers.",
+  "sources": [
+    {
+      "source_id": "anthropic_skills_repo",
+      "extension_types": ["skill"],
+      "searcher_type": "marketplace_json_searcher",
+      "reader_type": "github_marketplace_manifest_reader",
+      "entrypoint": {
+        "method": "GET",
+        "url": "https://raw.githubusercontent.com/anthropics/skills/main/.claude-plugin/marketplace.json"
+      },
+      "content_format": "marketplace_json",
+      "search_method": "Fetch marketplace JSON and match query terms against plugin collection names, descriptions, and nested skills paths.",
+      "query_parameters": {},
+      "result_mapping": {
+        "items": "plugins[] and plugins[].skills[]",
+        "title": "skills[] basename or plugins[].name",
+        "snippet": "plugins[].description",
+        "url": "resolved GitHub tree URL for the skill path"
+      },
+      "detail_reading": "Read each matched skill path, especially SKILL.md, before creating candidates.",
+      "risk_notes": ["Official source, but scripts/resources in individual skills still need review."],
+      "failure_handling": "If the marketplace JSON cannot be fetched or parsed, return a failed source result and continue with other sources."
+    },
+    {
+      "source_id": "anthropic_agent_skills_docs",
+      "extension_types": ["skill"],
+      "searcher_type": "docs_keyword_searcher",
+      "reader_type": "docs_markdown_reader",
+      "entrypoint": {
+        "method": "GET",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview.md"
+      },
+      "content_format": "markdown",
+      "search_method": "Fetch markdown documentation and match query terms against headings and paragraphs.",
+      "query_parameters": {},
+      "result_mapping": {
+        "items": "markdown sections",
+        "title": "nearest heading",
+        "snippet": "matching section excerpt",
+        "url": "documentation page URL"
+      },
+      "detail_reading": "Use this source as normative documentation and policy context, not as a standalone installable candidate.",
+      "risk_notes": ["Documentation source only; should not be ranked as an installable extension."],
+      "failure_handling": "If the markdown URL fails, record the source failure and continue."
+    },
+    {
+      "source_id": "anthropic_skills_cookbook",
+      "extension_types": ["skill"],
+      "searcher_type": "github_contents_searcher",
+      "reader_type": "github_repo_tree_reader",
+      "entrypoint": {
+        "method": "GET",
+        "url": "https://api.github.com/repos/anthropics/anthropic-cookbook/contents/skills"
+      },
+      "content_format": "github_contents_json",
+      "search_method": "Fetch GitHub Contents API for the skills directory and match query terms against directory names, file paths, and README fallback text.",
+      "query_parameters": {},
+      "result_mapping": {
+        "items": "GitHub contents[]",
+        "title": "name or path",
+        "snippet": "path plus source purpose",
+        "url": "html_url"
+      },
+      "detail_reading": "Read README or notebook summaries for matched examples; mark as examples/tutorials.",
+      "risk_notes": ["Cookbook examples are reference material, not a complete marketplace."],
+      "failure_handling": "If GitHub Contents API fails, fetch the README markdown fallback."
+    },
+    {
+      "source_id": "skillsmp_directory",
+      "extension_types": ["skill"],
+      "searcher_type": "skillsmp_api_searcher",
+      "reader_type": "skillsmp_api_reader",
+      "entrypoint": {
+        "method": "GET",
+        "url": "https://skillsmp.com/api/v1/skills/search"
+      },
+      "content_format": "skillsmp_search_json",
+      "search_method": "Call SkillsMP keyword search API and convert returned GitHub-backed skill hits into provisional search results.",
+      "query_parameters": {
+        "q": "query.text",
+        "limit": "query.max_results",
+        "sortBy": "stars"
+      },
+      "result_mapping": {
+        "items": "data.skills[]",
+        "title": "name or id",
+        "snippet": "description",
+        "url": "githubUrl or skillUrl"
+      },
+      "detail_reading": "Read the returned GitHub source before creating candidates.",
+      "risk_notes": ["Community discovery source; SkillsMP indexes public GitHub sources and does not certify safety."],
+      "failure_handling": "On API errors or rate limits, record failure and continue with official Skill sources."
+    },
+    {
+      "source_id": "official_mcp_registry",
+      "extension_types": ["mcp"],
+      "searcher_type": "mcp_registry_api_searcher",
+      "reader_type": "generic_mcp_registry_reader",
+      "entrypoint": {
+        "method": "GET",
+        "url": "https://registry.modelcontextprotocol.io/v0.1/servers"
+      },
+      "content_format": "official_mcp_registry_json",
+      "search_method": "Fetch registry servers JSON and match query terms against server name, title, description, repository, packages, and remotes.",
+      "query_parameters": {},
+      "result_mapping": {
+        "items": "servers[]",
+        "title": "server.title or server.name",
+        "snippet": "server.description",
+        "url": "server.repository.url or server.websiteUrl or first remote url"
+      },
+      "detail_reading": "Read registry entry and linked repository/package metadata before recommending installation.",
+      "risk_notes": ["Official registry is preview; remote servers and package transports still require review."],
+      "failure_handling": "Record schema or availability failures and continue with community registries."
+    },
+    {
+      "source_id": "glama_mcp",
+      "extension_types": ["mcp"],
+      "searcher_type": "glama_api_searcher",
+      "reader_type": "glama_api_reader",
+      "entrypoint": {
+        "method": "GET",
+        "url": "https://glama.ai/api/mcp/v1/servers"
+      },
+      "content_format": "glama_mcp_json",
+      "search_method": "Fetch public API results and match query terms against name, namespace, description, repository URL, attributes, and tools.",
+      "query_parameters": {},
+      "result_mapping": {
+        "items": "servers[]",
+        "title": "name",
+        "snippet": "description",
+        "url": "repository.url or url"
+      },
+      "detail_reading": "Use Glama as enrichment and cross-check against official registry or GitHub.",
+      "risk_notes": ["Community registry; trust should be lower than official registry."],
+      "failure_handling": "Record API failure and continue with official registry and Smithery."
+    },
+    {
+      "source_id": "smithery_mcp",
+      "extension_types": ["mcp"],
+      "searcher_type": "smithery_api_searcher",
+      "reader_type": "smithery_api_reader",
+      "entrypoint": {
+        "method": "GET",
+        "url": "https://api.smithery.ai/servers"
+      },
+      "content_format": "smithery_servers_json",
+      "search_method": "Fetch Smithery servers JSON and match query terms against displayName, qualifiedName, namespace, description, homepage, verified and remote fields.",
+      "query_parameters": {
+        "q": "query.text when supported",
+        "page": 1,
+        "pageSize": "query.max_results when supported"
+      },
+      "result_mapping": {
+        "items": "servers[]",
+        "title": "displayName or qualifiedName",
+        "snippet": "description",
+        "url": "homepage or Smithery server page"
+      },
+      "detail_reading": "Preserve hosted, remote, verified, deployed, useCount, and bySmithery fields as convenience/trust signals.",
+      "risk_notes": ["Commercial hosted registry; Smithery verification is not MCP official verification."],
+      "failure_handling": "If query parameters are unsupported, fetch default page and filter locally."
+    },
+    {
+      "source_id": "anthropic_official_plugin_marketplace",
+      "extension_types": ["plugin"],
+      "searcher_type": "marketplace_json_searcher",
+      "reader_type": "claude_marketplace_json_reader",
+      "entrypoint": {
+        "method": "GET",
+        "url": "https://raw.githubusercontent.com/anthropics/claude-plugins-official/main/.claude-plugin/marketplace.json"
+      },
+      "content_format": "claude_code_plugin_marketplace_json",
+      "search_method": "Fetch marketplace JSON and match query terms against plugin name, description, category, keywords, homepage, and source metadata.",
+      "query_parameters": {},
+      "result_mapping": {
+        "items": "plugins[]",
+        "title": "name",
+        "snippet": "description",
+        "url": "homepage or resolved source URL"
+      },
+      "detail_reading": "Read plugin source directory or plugin manifest before candidate creation.",
+      "risk_notes": ["Hooks, MCP servers, local executables, npm packages, and unpinned external sources should raise risk."],
+      "failure_handling": "Return failed result for fetch/parse errors and continue with other plugin sources."
+    },
+    {
+      "source_id": "anthropic_community_plugin_marketplace",
+      "extension_types": ["plugin"],
+      "searcher_type": "marketplace_json_searcher",
+      "reader_type": "large_marketplace_json_reader",
+      "entrypoint": {
+        "method": "GET",
+        "url": "https://raw.githubusercontent.com/anthropics/claude-plugins-community/main/.claude-plugin/marketplace.json"
+      },
+      "content_format": "large_claude_code_plugin_marketplace_json",
+      "search_method": "Fetch large marketplace JSON, filter entries locally, and resolve details only for matching plugins.",
+      "query_parameters": {},
+      "result_mapping": {
+        "items": "plugins[]",
+        "title": "name",
+        "snippet": "description",
+        "url": "homepage or resolved source URL"
+      },
+      "detail_reading": "Cache by SHA/ETag in future work; read matched plugin details before recommending.",
+      "risk_notes": ["Official community index can point to external repositories; verify each source."],
+      "failure_handling": "Record fetch/parse failure and continue with official/demo/community sources."
+    },
+    {
+      "source_id": "anthropic_demo_plugin_marketplace",
+      "extension_types": ["plugin"],
+      "searcher_type": "marketplace_json_searcher",
+      "reader_type": "github_repo_marketplace_reader",
+      "entrypoint": {
+        "method": "GET",
+        "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/.claude-plugin/marketplace.json"
+      },
+      "content_format": "claude_code_demo_marketplace_json",
+      "search_method": "Fetch demo marketplace JSON and match query terms against bundled plugin names, descriptions, categories, and source paths.",
+      "query_parameters": {},
+      "result_mapping": {
+        "items": "plugins[]",
+        "title": "name",
+        "snippet": "description",
+        "url": "resolved GitHub tree URL under the claude-code repository"
+      },
+      "detail_reading": "Use as format reference and test fixture; read plugin directory under plugins/ before candidate creation.",
+      "risk_notes": ["Demo/example entries should not outrank official or strong community evidence unless clearly relevant."],
+      "failure_handling": "Record fetch/parse failure and continue."
+    },
+    {
+      "source_id": "ccplugins_awesome_marketplace",
+      "extension_types": ["plugin"],
+      "searcher_type": "marketplace_json_searcher",
+      "reader_type": "claude_marketplace_json_reader",
+      "entrypoint": {
+        "method": "GET",
+        "url": "https://raw.githubusercontent.com/ccplugins/awesome-claude-code-plugins/main/.claude-plugin/marketplace.json"
+      },
+      "content_format": "community_claude_code_plugin_marketplace_json",
+      "search_method": "Fetch marketplace JSON and match query terms against plugin entries; use README categories only as supplemental tags in future work.",
+      "query_parameters": {},
+      "result_mapping": {
+        "items": "plugins[]",
+        "title": "name",
+        "snippet": "description",
+        "url": "homepage or resolved source URL"
+      },
+      "detail_reading": "Resolve local source paths such as ./plugins/<name> and read detail files before candidate creation.",
+      "risk_notes": ["Community index; require stronger evidence before direct recommendation."],
+      "failure_handling": "Record fetch/parse failure and continue with official sources."
+    }
+  ]
+}

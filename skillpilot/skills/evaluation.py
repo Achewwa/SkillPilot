@@ -1,328 +1,33 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 from skillpilot.models import (
     Candidate,
     CandidateEvaluation,
-    Decision,
     ParsedRequirement,
     RetrievedContent,
-    SearchPlan,
-    SearchQuery,
-    SearchSource,
     TypeClassification,
 )
-from skillpilot.modules.source_catalog import SourceCatalog
+from skillpilot.safety import RiskPolicy
+from skillpilot.scoring import DEFAULT_SCORING_WEIGHTS, ScoringWeights
+from skillpilot.skills.core import LLMProvider
+from skillpilot.utils import extract_json_object
 
-
-class ParserLLM(Protocol):
-    def generate(self, prompt: str) -> Any:
-        ...
-
-
-class RequirementParser:
-    def __init__(self, llm: ParserLLM | None = None) -> None:
-        self.llm = llm
-
-    def parse(self, text: str) -> ParsedRequirement:
-        if self.llm is None:
-            return self._fallback(text, "LLM parser is not configured.")
-
-        prompt = self._build_prompt(text)
-        try:
-            response = self.llm.generate(prompt)
-            response_text = getattr(response, "text", str(response))
-            payload = json.loads(self._extract_json(response_text))
-            return self._from_payload(text, payload)
-        except Exception as exc:  # noqa: BLE001 - parsing should continue with traceable fallback.
-            return self._fallback(text, f"LLM parser failed: {exc}")
-
-    def _from_payload(self, text: str, payload: dict[str, Any]) -> ParsedRequirement:
-        capabilities = payload.get("desired_capabilities")
-        if not isinstance(capabilities, list):
-            capabilities = []
-        normalized_capabilities = [
-            str(capability).strip().lower().replace(" ", "_").replace("-", "_")
-            for capability in capabilities
-            if str(capability).strip()
-        ]
-        return ParsedRequirement(
-            raw_text=text,
-            task_domain=str(payload.get("task_domain") or "general").strip() or "general",
-            desired_capabilities=normalized_capabilities or ["general_guidance"],
-            requires_codebase_access=bool(payload.get("requires_codebase_access", False)),
-            requires_command_execution=bool(payload.get("requires_command_execution", False)),
-            requires_external_service=bool(payload.get("requires_external_service", False)),
-            risk_tolerance=str(payload.get("risk_tolerance") or "medium").strip() or "medium",
-        )
-
-    def _fallback(self, text: str, reason: str) -> ParsedRequirement:
-        lower = text.lower()
-        capabilities: list[str] = []
-
-        if "测试" in text or "test" in lower:
-            capabilities.extend(["generate_tests", "analyze_test_failures"])
-        if "github" in lower or "issue" in lower:
-            capabilities.extend(["github_issue_read", "codebase_access"])
-        if "论文" in text or "引用" in text:
-            capabilities.extend(["writing_review", "citation_check"])
-        if "课件" in text or "作业" in text or "知识点" in text:
-            capabilities.extend(["knowledge_hint", "answer_guardrail"])
-        if "pdf" in lower or "文档" in text or "文件" in text:
-            capabilities.extend(["pdf_reading", "document_parsing"])
-        if any(term in lower for term in ("poster", "design", "image")) or any(
-            term in text for term in ("海报", "设计", "图片", "图像", "视觉")
-        ):
-            capabilities.extend(["poster_design", "visual_design"])
-
-        return ParsedRequirement(
-            raw_text=text,
-            task_domain=self._infer_domain(text),
-            desired_capabilities=self._dedupe_values(capabilities) or ["general_guidance"],
-            risk_tolerance="medium",
-        )
-
-    def _infer_domain(self, text: str) -> str:
-        lower = text.lower()
-        if "测试" in text or "代码" in text or "github" in lower:
-            return "software_engineering"
-        if "pdf" in lower or "文档" in text or "文件" in text:
-            return "document_processing"
-        if "论文" in text or "引用" in text:
-            return "academic_writing"
-        if "课件" in text or "作业" in text:
-            return "education"
-        if any(term in lower for term in ("poster", "design", "image")) or any(
-            term in text for term in ("海报", "设计", "图片", "图像", "视觉")
-        ):
-            return "visual_design"
-        return "general"
-
-    def _dedupe_values(self, values: list[str]) -> list[str]:
-        seen: set[str] = set()
-        deduped: list[str] = []
-        for value in values:
-            if value in seen:
-                continue
-            seen.add(value)
-            deduped.append(value)
-        return deduped
-
-    def _build_prompt(self, text: str) -> str:
-        return f"""You are the requirement extraction module for SkillPilot.
-
-Extract a structured requirement from the user's request. Return ONLY valid JSON.
-Do not wrap the JSON in markdown. Do not include explanations.
-
-Schema:
-{{
-  "task_domain": "short_snake_case_domain",
-  "desired_capabilities": ["short_snake_case_capability"],
-  "requires_codebase_access": false,
-  "requires_command_execution": false,
-  "requires_external_service": false,
-  "risk_tolerance": "low|medium|high"
-}}
-
-Guidance:
-- Capabilities should be specific and search-friendly, e.g. "pdf_reading", "document_parsing", "github_issue_read", "unit_test_generation", "citation_check", "homework_hinting".
-- Infer capabilities from meaning, not only from exact keywords.
-- Use boolean fields to describe operational needs.
-- If the request is ambiguous, still infer the most likely capabilities conservatively.
-
-User request:
-{text}
-"""
-
-    def _extract_json(self, text: str) -> str:
-        stripped = text.strip()
-        if stripped.startswith("{") and stripped.endswith("}"):
-            return stripped
-        start = stripped.find("{")
-        end = stripped.rfind("}")
-        if start == -1 or end == -1 or end <= start:
-            raise ValueError("LLM response did not contain a JSON object.")
-        return stripped[start : end + 1]
-
-
-class ExtensionTypeClassifier:
-    def classify(self, requirement: ParsedRequirement) -> TypeClassification:
-        text = requirement.raw_text.lower()
-        if "skill" in text or "技能" in requirement.raw_text:
-            return TypeClassification(
-                recommended_type="skill",
-                confidence=0.86,
-                reason="用户明确提到 Skill，优先规划 Claude Skill 方向。",
-            )
-        if "插件" in requirement.raw_text or "plugin" in text:
-            return TypeClassification(
-                recommended_type="plugin",
-                confidence=0.74,
-                reason="用户明确提到插件，优先规划 Claude Code Plugin 方向，同时保留后续安全评估。",
-            )
-        if requirement.requires_external_service:
-            return TypeClassification(
-                recommended_type="mcp",
-                confidence=0.78,
-                reason="需求涉及外部服务或仓库访问，MCP 更适合作为工具连接层。",
-            )
-        if "一整套" in requirement.raw_text or "workflow" in text:
-            return TypeClassification(
-                recommended_type="plugin",
-                confidence=0.7,
-                reason="需求像完整工作流，后续可扩展为 Plugin 方案。",
-            )
-        return TypeClassification(
-            recommended_type="skill",
-            confidence=0.82,
-            reason="需求主要是规范 Claude 如何完成任务，适合先以 Skill 表达。",
-        )
-
-
-class SourcePlanner:
-    def __init__(self) -> None:
-        self.catalog = SourceCatalog()
-
-    def plan(self, requirement: ParsedRequirement, classification: TypeClassification) -> SearchPlan:
-        sources = self.catalog.sources_for(classification.recommended_type)
-        queries = self._build_queries(requirement, classification, sources)
-        return SearchPlan(
-            extension_type=classification.recommended_type,
-            sources=sources,
-            queries=queries,
-        )
-
-    def _build_queries(
-        self,
-        requirement: ParsedRequirement,
-        classification: TypeClassification,
-        sources: list[SearchSource],
-    ) -> list[SearchQuery]:
-        extension_type = classification.recommended_type
-        capability_text = self._capability_terms(requirement)
-        raw_text = requirement.raw_text.strip()
-
-        patterns = [
-            (
-                "source",
-                self._source_query_text(source, capability_text, raw_text),
-                f"Search inside the curated source `{source.source_id}`.",
-                source.source_id,
-            )
-            for source in sources
-        ]
-        return self._dedupe_queries(patterns, extension_type)
-
-    def _source_query_text(self, source: SearchSource, capability_text: str, raw_text: str) -> str:
-        ecosystem_terms = self._source_ecosystem_terms(source)
-        terms_by_kind = {
-            "official_docs": "official docs",
-            "official_registry_api": "official registry",
-            "community_registry_api": "registry API",
-            "commercial_hosted_registry_api": "hosted registry",
-            "official_github_marketplace_repo": "marketplace.json",
-            "community_github_marketplace_repo": "marketplace.json",
-            "official_example_repo": "examples README",
-            "community_awesome_list": "awesome list",
-            "web_directory": "web directory",
-            "github_search": "GitHub",
-        }
-        source_terms = terms_by_kind.get(source.source_kind, source.source_kind)
-        if source.source_id == "skillsmp_directory":
-            return f"{capability_text} {raw_text}".strip()
-        if source.source_kind in {
-            "official_github_marketplace_repo",
-            "community_github_marketplace_repo",
-        }:
-            return f'{capability_text} {ecosystem_terms} {source.name} ".claude-plugin" marketplace.json'
-        if source.source_kind.endswith("registry_api"):
-            return f"{capability_text} {ecosystem_terms} {source.name} {source_terms}"
-        return f"{capability_text} {ecosystem_terms} {source.name} {source_terms} {raw_text}"
-
-    def _source_ecosystem_terms(self, source: SearchSource) -> str:
-        if "plugin" in source.extension_types:
-            return "Claude Code plugin"
-        if "mcp" in source.extension_types:
-            return "MCP server"
-        if "skill" in source.extension_types:
-            return "Claude Skill SKILL.md"
-        return "Claude extension"
-
-    def _capability_terms(self, requirement: ParsedRequirement) -> str:
-        capability_labels = {
-            "unit_test_generation": "Python unit test generation",
-            "test_failure_analysis": "test failure analysis",
-            "generate_tests": "Python unit test generation",
-            "analyze_test_failures": "test failure analysis",
-            "github_issue_read": "GitHub issue reader",
-            "codebase_access": "codebase access",
-            "writing_review": "academic writing review",
-            "citation_check": "citation check",
-            "knowledge_hint": "homework knowledge hint",
-            "answer_guardrail": "avoid direct answers",
-            "pdf_reading": "PDF reading",
-            "document_parsing": "document parsing",
-            "poster_design": "poster design",
-            "visual_design": "visual design",
-            "general_guidance": "general assistant guidance",
-        }
-        terms = [
-            capability_labels.get(capability, capability.replace("_", " "))
-            for capability in requirement.desired_capabilities
-        ]
-        if not terms:
-            terms.append(requirement.task_domain.replace("_", " "))
-        if terms == ["general assistant guidance"]:
-            return requirement.raw_text.strip() or "general assistant guidance"
-        return " ".join(terms[:3])
-
-    def _dedupe_queries(
-        self,
-        patterns: list[tuple[str, str, str, str | None]],
-        extension_type: str,
-    ) -> list[SearchQuery]:
-        queries: list[SearchQuery] = []
-        seen: set[tuple[str | None, str, str]] = set()
-        for source_type, text, purpose, source_id in patterns:
-            normalized = " ".join(text.split())
-            key = (source_id, source_type, normalized.lower())
-            if key in seen:
-                continue
-            seen.add(key)
-            queries.append(
-                SearchQuery(
-                    text=normalized,
-                    source_type=source_type,  # type: ignore[arg-type]
-                    extension_type=extension_type,  # type: ignore[arg-type]
-                    purpose=purpose,
-                    source_id=source_id,
-                )
-            )
-            if len(queries) >= 5:
-                break
-        return queries
-
-
-class LocalCandidateCache:
-    def __init__(self, cache_path: Path) -> None:
-        self.cache_path = cache_path
-
-    def load(self) -> list[Candidate]:
-        data = json.loads(self.cache_path.read_text(encoding="utf-8"))
-        return [Candidate(**item) for item in data]
-
-
-class EvaluationLLM(Protocol):
-    def generate(self, prompt: str) -> Any:
-        ...
+EvaluationLLM = LLMProvider
 
 
 class CandidateEvaluator:
-    def __init__(self, llm: EvaluationLLM | None = None) -> None:
+    def __init__(
+        self,
+        llm: EvaluationLLM | None = None,
+        weights: ScoringWeights = DEFAULT_SCORING_WEIGHTS,
+        risk_policy: RiskPolicy | None = None,
+    ) -> None:
         self.llm = llm
+        self.weights = weights
+        self.risk_policy = risk_policy or RiskPolicy()
 
     def evaluate(
         self,
@@ -358,11 +63,11 @@ class CandidateEvaluator:
         llm_result = self._score_content_with_llm(requirement, classification, content)
         candidate = llm_result["candidate"]
         type_score = self._type_score(classification, candidate)
-        match_score = (
-            llm_result["capability_score"] * 0.45
-            + type_score * 0.15
-            + llm_result["documentation_score"] * 0.20
-            + llm_result["safety_score"] * 0.20
+        match_score = self.weights.aggregate(
+            capability_score=llm_result["capability_score"],
+            type_score=type_score,
+            documentation_score=llm_result["documentation_score"],
+            safety_score=llm_result["safety_score"],
         )
 
         return CandidateEvaluation(
@@ -540,11 +245,11 @@ class CandidateEvaluator:
     ) -> CandidateEvaluation:
         llm_result = self._score_with_llm(requirement, classification, candidate)
         type_score = self._type_score(classification, candidate)
-        match_score = (
-            llm_result["capability_score"] * 0.45
-            + type_score * 0.15
-            + llm_result["documentation_score"] * 0.20
-            + llm_result["safety_score"] * 0.20
+        match_score = self.weights.aggregate(
+            capability_score=llm_result["capability_score"],
+            type_score=type_score,
+            documentation_score=llm_result["documentation_score"],
+            safety_score=llm_result["safety_score"],
         )
 
         return CandidateEvaluation(
@@ -632,16 +337,7 @@ class CandidateEvaluator:
         return normalized[:max_length].rstrip() + "..."
 
     def _extract_json(self, text: str) -> str:
-        stripped = text.strip()
-        if stripped.startswith("```"):
-            stripped = stripped.strip("`").strip()
-            if stripped.startswith("json"):
-                stripped = stripped.removeprefix("json").strip()
-        start = stripped.find("{")
-        end = stripped.rfind("}")
-        if start == -1 or end == -1 or end < start:
-            raise ValueError("LLM response did not contain a JSON object.")
-        return stripped[start : end + 1]
+        return extract_json_object(text)
 
     def _normalize_llm_result(
         self,
@@ -701,43 +397,15 @@ class CandidateEvaluator:
             + (0.20 if candidate.installation else 0.0)
             + (0.15 if candidate.dependencies or candidate.permissions else 0.0),
         )
-        permissions = set(candidate.permissions)
-        dependencies = set(candidate.dependencies)
-        risk_reasons: list[str] = []
-        high_risk = bool({"write_repository", "command_execution"} & permissions) or bool(
-            {"api_token", "github_token"} & dependencies
-        )
-        medium_risk = bool({"external_service", "read_repository", "read_documents"} & permissions)
-        if "write_repository" in permissions:
-            risk_reasons.append("候选涉及仓库写入权限，可能修改代码、提交或创建 PR。")
-        if "command_execution" in permissions:
-            risk_reasons.append("候选涉及命令执行，需要避免自动运行不可信脚本。")
-        if {"api_token", "github_token"} & dependencies:
-            risk_reasons.append("候选需要 token 或 API 凭据，应避免在未审计配置中暴露。")
-        if "external_service" in permissions:
-            risk_reasons.append("候选需要连接外部服务，可能涉及账号、网络请求或远程数据。")
-        if "read_repository" in permissions:
-            risk_reasons.append("候选会读取仓库或代码库，需要确认访问范围。")
-        if "read_documents" in permissions:
-            risk_reasons.append("候选会读取本地或上传文档，需要确认文件范围和隐私。")
-        if high_risk:
-            risk_level = "high"
-            safety_score = 0.0
-        elif medium_risk:
-            risk_level = "medium"
-            safety_score = 0.55
-        else:
-            risk_level = "low"
-            safety_score = 1.0
-            risk_reasons.append("未发现明显的高危权限或敏感依赖。")
+        risk = self.risk_policy.assess_candidate(candidate)
         return {
             "capability_score": len(matched) / max(len(required), 1),
             "documentation_score": documentation_score,
-            "safety_score": safety_score,
+            "safety_score": risk.safety_score,
             "matched_capabilities": matched,
             "missing_capabilities": missing,
-            "risk_level": risk_level,
-            "risk_reasons": risk_reasons,
+            "risk_level": risk.risk_level,
+            "risk_reasons": risk.risk_reasons,
             "reason": "",
         }
 
@@ -771,44 +439,3 @@ class CandidateEvaluator:
         if candidate.extension_type == "unknown":
             return 0.2
         return 0.25
-
-
-class DecisionGate:
-    def build_custom(self, reason: str) -> Decision:
-        return Decision(
-            decision_type="build_custom_skill",
-            reason=reason,
-            selected_candidates=[],
-        )
-
-    def decide(self, evaluations: list[CandidateEvaluation]) -> Decision:
-        best = evaluations[0] if evaluations else None
-        if best is None or best.match_score < 0.45:
-            return Decision(
-                decision_type="build_custom_skill",
-                reason=(
-                    "实时搜索或可用候选没有提供足够证据支撑直接推荐，"
-                    "进入自定义 Skill 草案流程。"
-                ),
-                selected_candidates=[],
-            )
-        if best.risk_level == "high":
-            return Decision(
-                decision_type="build_custom_skill",
-                reason=(
-                    "最高匹配候选包含高风险权限或敏感凭据依赖，"
-                    "不建议直接安装；优先生成更小权限的自定义 Skill，并把候选作为人工审查参考。"
-                ),
-                selected_candidates=evaluations[:3],
-            )
-        if best.match_score >= 0.75 and best.risk_level != "high":
-            return Decision(
-                decision_type="recommend_existing",
-                reason="存在匹配度较高且风险为低或中的候选资源，可作为现成资源推荐。",
-                selected_candidates=evaluations[:3],
-            )
-        return Decision(
-            decision_type="recommend_with_custom_extension",
-            reason="候选资源有中等相关性，建议参考现有资源并用自定义 Skill 补齐缺失能力。",
-            selected_candidates=evaluations[:3],
-        )

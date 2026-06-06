@@ -29,6 +29,12 @@ class SearchConfig:
 
 
 @dataclass(frozen=True)
+class BuilderConfig:
+    interactive: bool = True
+    max_clarification_rounds: int = 3
+
+
+@dataclass(frozen=True)
 class AppConfig:
     project_root: Path
     data_dir: Path
@@ -36,6 +42,7 @@ class AppConfig:
     generated_skills_dir: Path
     llm: LLMConfig
     search: SearchConfig
+    builder: BuilderConfig
 
 
 def load_config() -> AppConfig:
@@ -63,11 +70,20 @@ def load_config() -> AppConfig:
         ),
         user_agent=os.getenv("SKILLPILOT_SEARCH_USER_AGENT", "SkillPilot/0.1"),
     )
+    builder = BuilderConfig(
+        interactive=os.getenv("SKILLPILOT_BUILDER_INTERACTIVE", "1") != "0",
+        max_clarification_rounds=int(os.getenv("SKILLPILOT_BUILDER_MAX_ROUNDS", "3")),
+    )
+    outputs_dir = Path(os.getenv("SKILLPILOT_OUTPUTS_DIR", str(PROJECT_ROOT / "outputs")))
+    generated_skills_dir = Path(
+        os.getenv("SKILLPILOT_GENERATED_SKILLS_DIR", str(PROJECT_ROOT / "generated_skills"))
+    )
     return AppConfig(
         project_root=PROJECT_ROOT,
         data_dir=PROJECT_ROOT / "data",
-        outputs_dir=PROJECT_ROOT / "outputs",
-        generated_skills_dir=PROJECT_ROOT / "generated_skills",
+        outputs_dir=outputs_dir,
+        generated_skills_dir=generated_skills_dir,
         llm=llm,
         search=search,
+        builder=builder,
     )

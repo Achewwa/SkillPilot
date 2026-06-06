@@ -2,27 +2,38 @@
 
 ## Description
 
-占位 Skill 草案：根据课程资料为书面作业题提供知识点提示，但不直接给出答案。
+Use this skill to help Claude handle: 我想要一个 Skill，根据课程课件给书面作业题生成知识点提示，但不能直接给答案。 It turns the user's vague need into a structured workflow, safe boundaries, and reusable output templates.
 
 ## When To Use
 
-- 用户希望理解题目涉及的知识点。
-- 用户需要解题方向、概念提醒或阅读建议。
-- 用户明确要求不要直接输出完整答案。
+- The user request is related to general.
+- The user asks for a repeatable workflow rather than a one-off answer.
+- The task benefits from clear constraints, examples, or output templates.
 
 ## Workflow
 
-1. 识别题目主题和课程知识点。
-2. 给出相关概念、公式或阅读范围。
-3. 提供分步骤思考提示。
-4. 检查输出中是否包含直接答案，并在必要时改写为提示。
+1. Restate the user's goal and identify the relevant task context.
+2. Ask for missing details only when the task cannot be handled safely from the current context.
+3. Apply the rules and templates in resources/ before producing the final response.
+4. Generate the response in the requested output format.
+5. Review the response against the constraints and remove unsafe or overreaching content.
 
 ## Constraints
 
-- 不直接给最终答案。
-- 不替用户完成完整作业。
-- 不编造课程资料中不存在的要求。
+- Do not provide a complete homework answer; guide the user with concepts and steps.
+- Do not install third-party extensions, run shell commands, or request secrets.
+- Do not invent source material that the user has not provided.
+- Prefer safe guidance, checklists, templates, and examples over direct high-risk automation.
 
 ## Output Format
 
-参考 `resources/output_template.md`。
+Use Markdown sections: Task Understanding, Key Guidance, Step-by-step Hints, Output Template, Safety or Boundary Notes.
+
+## Resources
+
+- `resources/guidance_rules.md`: Rules and boundaries for this Skill.
+- `resources/output_template.md`: Reusable response template.
+
+## Examples
+
+- `examples/sample_output.md`: Example response following the Skill workflow.

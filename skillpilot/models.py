@@ -8,6 +8,15 @@ from pydantic import BaseModel, Field
 
 ExtensionType = Literal["skill", "mcp", "plugin", "mixed", "unknown"]
 RiskLevel = Literal["low", "medium", "high"]
+BuilderPhase = Literal[
+    "intake",
+    "clarify",
+    "reflect",
+    "generate",
+    "review",
+    "complete",
+    "blocked",
+]
 SearchSourceType = Literal["source", "web", "github"]
 SearchSourceKind = Literal[
     "official_docs",
@@ -137,10 +146,73 @@ class Decision(BaseModel):
     custom_skill_name: str | None = None
 
 
+class ClarificationOption(BaseModel):
+    option_id: str
+    label: str
+    detail: str
+
+
+class ClarificationQuestion(BaseModel):
+    question_id: str
+    prompt: str
+    reason: str
+    required: bool = True
+    options: list[ClarificationOption] = Field(default_factory=list)
+    allow_free_text: bool = True
+
+
+class BuilderTurn(BaseModel):
+    turn_index: int
+    questions: list[ClarificationQuestion] = Field(default_factory=list)
+    answers: dict[str, str] = Field(default_factory=dict)
+    reflection: str = ""
+
+
+class SkillResourceSpec(BaseModel):
+    path: str
+    purpose: str
+    content_hint: str = ""
+
+
+class SkillSpec(BaseModel):
+    name: str
+    slug: str
+    description: str
+    when_to_use: list[str] = Field(default_factory=list)
+    workflow: list[str] = Field(default_factory=list)
+    constraints: list[str] = Field(default_factory=list)
+    output_format: str = ""
+    resources: list[SkillResourceSpec] = Field(default_factory=list)
+    examples: list[SkillResourceSpec] = Field(default_factory=list)
+    requires_scripts: bool = False
+    script_notes: list[str] = Field(default_factory=list)
+    packaging_notes: list[str] = Field(default_factory=list)
+
+
+class SafetyReviewResult(BaseModel):
+    allowed: bool
+    risk_level: RiskLevel = "low"
+    risk_reasons: list[str] = Field(default_factory=list)
+    safe_alternatives: list[str] = Field(default_factory=list)
+
+
+class BuilderSession(BaseModel):
+    phase: BuilderPhase = "intake"
+    turns: list[BuilderTurn] = Field(default_factory=list)
+    information_sufficient: bool = False
+    reflection: str = ""
+    spec: SkillSpec | None = None
+    safety_review: SafetyReviewResult | None = None
+
+
 class SkillDraftResult(BaseModel):
     name: str
     path: str
     files: list[str]
+    spec_summary: str | None = None
+    safety_review: SafetyReviewResult | None = None
+    builder_session: BuilderSession | None = None
+    warnings: list[str] = Field(default_factory=list)
 
 
 class AgentRunResult(BaseModel):
@@ -154,6 +226,7 @@ class AgentRunResult(BaseModel):
     report_path: str
     trace_path: str
     skill_draft: SkillDraftResult | None = None
+    builder_session: BuilderSession | None = None
     created_at: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )

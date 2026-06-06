@@ -10,6 +10,7 @@ from skillpilot.models import (
     RetrievedContent,
     SearchPlan,
     SearchResult,
+    SkillDraftResult,
     model_to_dict,
 )
 
@@ -27,6 +28,7 @@ class RecommendationWriter:
         search_plan: SearchPlan | None = None,
         search_results: list[SearchResult] | None = None,
         retrieved_contents: list[RetrievedContent] | None = None,
+        skill_draft: SkillDraftResult | None = None,
         report_path: Path | None = None,
     ) -> Path:
         self.outputs_dir.mkdir(parents=True, exist_ok=True)
@@ -184,6 +186,11 @@ class RecommendationWriter:
                 "",
                 self._usage_advice(decision),
                 "",
+            ]
+        )
+        lines.extend(self._builder_lines(skill_draft))
+        lines.extend(
+            [
                 "## 安全提示",
                 "",
                 "SkillPilot 不会自动安装、运行或授权第三方扩展。涉及命令执行、写入、token、数据库或远程写操作的候选，必须先人工审查。",
@@ -235,6 +242,56 @@ class RecommendationWriter:
         if decision.selected_candidates:
             return "不建议直接安装高风险候选；可先采用自定义 Skill 草案，并把候选资源留作人工审查材料。"
         return "未找到足够证据支撑现成推荐时，应明确说明搜索不足，并优先生成可控的自定义 Skill 草案。"
+
+    def _builder_lines(self, skill_draft: SkillDraftResult | None) -> list[str]:
+        if skill_draft is None:
+            return []
+        lines = [
+            "## SkillBuilder 构造过程",
+            "",
+            f"- 生成目录：`{skill_draft.path}`",
+        ]
+        if skill_draft.files:
+            lines.append("- 生成文件：")
+            for file_path in skill_draft.files:
+                lines.append(f"  - `{file_path}`")
+        if skill_draft.spec_summary:
+            lines.append(f"- 规格摘要：{skill_draft.spec_summary}")
+        if skill_draft.safety_review:
+            lines.append(f"- 安全审查：{skill_draft.safety_review.risk_level}")
+            for reason in skill_draft.safety_review.risk_reasons:
+                lines.append(f"  - {reason}")
+            if skill_draft.safety_review.safe_alternatives:
+                lines.append("- 安全替代方案：")
+                for item in skill_draft.safety_review.safe_alternatives:
+                    lines.append(f"  - {item}")
+        session = skill_draft.builder_session
+        if session:
+            lines.append(f"- Builder 状态：{session.phase}")
+            lines.append(f"- Builder 反思：{session.reflection}")
+            if session.spec:
+                lines.append(f"- Skill 名称：{session.spec.name}")
+                lines.append(f"- Skill slug：{session.spec.slug}")
+            if session.turns:
+                lines.append("- 澄清问答：")
+                for turn in session.turns:
+                    lines.append(f"  - 第 {turn.turn_index} 轮：{turn.reflection}")
+                    for question in turn.questions:
+                        answer = turn.answers.get(question.question_id, "未回答")
+                        lines.append(f"    - 问：{question.prompt}")
+                        if question.options:
+                            option_text = "；".join(
+                                f"{option.option_id}. {option.label}"
+                                for option in question.options
+                            )
+                            lines.append(f"      - 选项：{option_text}")
+                        lines.append(f"      - 答：{answer}")
+        if skill_draft.warnings:
+            lines.append("- 警告：")
+            for warning in skill_draft.warnings:
+                lines.append(f"  - {warning}")
+        lines.append("")
+        return lines
 
     def _join_or_none(self, values: list[str]) -> str:
         return "、".join(values) if values else "无"

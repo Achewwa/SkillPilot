@@ -1,11 +1,13 @@
 # Output Template
 
-## 题目理解
+## Task Understanding
 
-## 相关知识点
+## Key Guidance
 
-## 思考步骤提示
+## Step-by-step Hints
 
-## 需要回看课程资料的位置
+## Suggested Output
 
-## 不直接给答案的说明
+Use Markdown sections: Task Understanding, Key Guidance, Step-by-step Hints, Output Template, Safety or Boundary Notes.
+
+## Safety or Boundary Notes

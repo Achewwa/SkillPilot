@@ -1,340 +1,866 @@
 {
   "requirement": {
-    "raw_text": "自动管理github",
-    "task_domain": "software_engineering",
+    "raw_text": "将多张图片拼成有艺术感的组图",
+    "task_domain": "image_composition",
     "desired_capabilities": [
-      "github_issue_read",
-      "codebase_access"
+      "image_collage_creation",
+      "multi_image_layout",
+      "artistic_image_composition",
+      "image_processing"
     ],
-    "requires_codebase_access": true,
+    "requires_codebase_access": false,
     "requires_command_execution": false,
-    "requires_external_service": true,
-    "risk_tolerance": "medium"
+    "requires_external_service": false,
+    "risk_tolerance": "low"
   },
   "classification": {
-    "recommended_type": "mcp",
-    "confidence": 0.78,
-    "reason": "需求涉及外部服务或仓库访问，MCP 更适合作为工具连接层。"
+    "recommended_type": "skill",
+    "confidence": 0.82,
+    "reason": "需求主要是规范 Claude 如何完成任务，适合先以 Skill 表达。"
   },
   "search_plan": {
-    "extension_type": "mcp",
+    "extension_type": "skill",
     "sources": [
-      "web_search",
-      "github_repository_search"
+      {
+        "source_id": "anthropic_skills_repo",
+        "name": "Anthropic Skills Repository",
+        "extension_types": [
+          "skill"
+        ],
+        "source_kind": "official_github_marketplace_repo",
+        "trust_level": "official",
+        "reader_type": "github_marketplace_manifest_reader",
+        "searcher_type": "marketplace_json_searcher",
+        "base_url": "https://github.com/anthropics/skills",
+        "index_url": "https://raw.githubusercontent.com/anthropics/skills/main/.claude-plugin/marketplace.json",
+        "api_url": "https://api.github.com/repos/anthropics/skills/contents/skills",
+        "data_format": "GitHub repo with marketplace JSON and skills/*/SKILL.md",
+        "notes": "Canonical official Skill source; verify each skill by reading SKILL.md."
+      },
+      {
+        "source_id": "anthropic_agent_skills_docs",
+        "name": "Anthropic Agent Skills Docs",
+        "extension_types": [
+          "skill"
+        ],
+        "source_kind": "official_docs",
+        "trust_level": "official",
+        "reader_type": "docs_markdown_reader",
+        "searcher_type": "docs_keyword_searcher",
+        "base_url": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview",
+        "index_url": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview.md",
+        "api_url": null,
+        "data_format": "Official documentation page and markdown",
+        "notes": "Use for built-in skill IDs, field semantics, and policy context rather than broad discovery."
+      },
+      {
+        "source_id": "anthropic_skills_cookbook",
+        "name": "Anthropic Skills Cookbook",
+        "extension_types": [
+          "skill"
+        ],
+        "source_kind": "official_example_repo",
+        "trust_level": "official",
+        "reader_type": "github_repo_tree_reader",
+        "searcher_type": "github_contents_searcher",
+        "base_url": "https://github.com/anthropics/anthropic-cookbook/tree/main/skills",
+        "index_url": "https://raw.githubusercontent.com/anthropics/anthropic-cookbook/main/skills/README.md",
+        "api_url": "https://api.github.com/repos/anthropics/anthropic-cookbook/contents/skills",
+        "data_format": "GitHub examples, README, notebooks, and sample files",
+        "notes": "Treat as example/tutorial source, not a complete Skill market."
+      },
+      {
+        "source_id": "skillsmp_directory",
+        "name": "SkillsMP Skills Marketplace",
+        "extension_types": [
+          "skill"
+        ],
+        "source_kind": "community_skill_directory_api",
+        "trust_level": "community",
+        "reader_type": "skillsmp_api_reader",
+        "searcher_type": "skillsmp_api_searcher",
+        "base_url": "https://skillsmp.com",
+        "index_url": "https://skillsmp.com/search?q={query}",
+        "api_url": "https://skillsmp.com/api/v1/skills/search",
+        "data_format": "Community web directory plus REST API and OpenAPI spec",
+        "notes": "Search public GitHub SKILL.md index by keyword. Anonymous API is rate limited; always verify returned GitHub source before recommending."
+      }
     ],
     "queries": [
       {
-        "text": "GitHub issue reader codebase access MCP server GitHub",
-        "source_type": "github",
-        "extension_type": "mcp",
-        "purpose": "Find MCP server repositories.",
+        "text": "image collage creation multi image layout artistic image composition Claude Skill SKILL.md Anthropic Skills Repository \".claude-plugin\" marketplace.json",
+        "source_type": "source",
+        "extension_type": "skill",
+        "purpose": "Search inside the curated source `anthropic_skills_repo`.",
+        "source_id": "anthropic_skills_repo",
         "max_results": 5
       },
       {
-        "text": "GitHub issue reader codebase access \"Model Context Protocol\" server",
-        "source_type": "web",
-        "extension_type": "mcp",
-        "purpose": "Find MCP documentation and directories.",
+        "text": "image collage creation multi image layout artistic image composition Claude Skill SKILL.md Anthropic Agent Skills Docs official docs 将多张图片拼成有艺术感的组图",
+        "source_type": "source",
+        "extension_type": "skill",
+        "purpose": "Search inside the curated source `anthropic_agent_skills_docs`.",
+        "source_id": "anthropic_agent_skills_docs",
         "max_results": 5
       },
       {
-        "text": "GitHub issue reader codebase access \"mcp server\"",
-        "source_type": "github",
-        "extension_type": "mcp",
-        "purpose": "Find repositories using common MCP wording.",
+        "text": "image collage creation multi image layout artistic image composition Claude Skill SKILL.md Anthropic Skills Cookbook examples README 将多张图片拼成有艺术感的组图",
+        "source_type": "source",
+        "extension_type": "skill",
+        "purpose": "Search inside the curated source `anthropic_skills_cookbook`.",
+        "source_id": "anthropic_skills_cookbook",
         "max_results": 5
       },
       {
-        "text": "自动管理github Claude MCP server",
-        "source_type": "web",
-        "extension_type": "mcp",
-        "purpose": "Search the original requirement against MCP terms.",
+        "text": "image collage creation multi image layout artistic image composition 将多张图片拼成有艺术感的组图",
+        "source_type": "source",
+        "extension_type": "skill",
+        "purpose": "Search inside the curated source `skillsmp_directory`.",
+        "source_id": "skillsmp_directory",
         "max_results": 5
       }
     ]
   },
-  "search_results": [
-    {
-      "title": "",
-      "url": "",
-      "snippet": "Network search is disabled. Set SKILLPILOT_ENABLE_NETWORK_SEARCH=1 to execute this query.",
-      "source_type": "github",
-      "query": "GitHub issue reader codebase access MCP server GitHub",
-      "status": "skipped",
-      "error_message": null,
-      "metadata": {}
-    },
-    {
-      "title": "",
-      "url": "",
-      "snippet": "Network search is disabled. Set SKILLPILOT_ENABLE_NETWORK_SEARCH=1 to execute this query.",
-      "source_type": "web",
-      "query": "GitHub issue reader codebase access \"Model Context Protocol\" server",
-      "status": "skipped",
-      "error_message": null,
-      "metadata": {}
-    },
-    {
-      "title": "",
-      "url": "",
-      "snippet": "Network search is disabled. Set SKILLPILOT_ENABLE_NETWORK_SEARCH=1 to execute this query.",
-      "source_type": "github",
-      "query": "GitHub issue reader codebase access \"mcp server\"",
-      "status": "skipped",
-      "error_message": null,
-      "metadata": {}
-    },
-    {
-      "title": "",
-      "url": "",
-      "snippet": "Network search is disabled. Set SKILLPILOT_ENABLE_NETWORK_SEARCH=1 to execute this query.",
-      "source_type": "web",
-      "query": "自动管理github Claude MCP server",
-      "status": "skipped",
-      "error_message": null,
-      "metadata": {}
-    }
-  ],
-  "evaluations": [
-    {
-      "candidate": {
-        "name": "github-issue-workflow-mcp",
-        "extension_type": "mcp",
-        "source_url": "cache://mcp/github-issues",
-        "description": "A cached MCP-style candidate for reading GitHub issues and coordinating code changes.",
-        "capabilities": [
-          "github_issue_read",
-          "codebase_access",
-          "change_planning"
-        ],
-        "installation": "Configure a GitHub token and register the MCP server manually.",
-        "dependencies": [
-          "github_token"
-        ],
-        "permissions": [
-          "external_service",
-          "read_repository",
-          "write_repository"
-        ],
-        "maintainer": "SkillPilot demo cache",
-        "last_updated": "2026-06-05",
-        "evidence": [
-          "Demo cache entry highlights GitHub access and repository permissions."
-        ]
-      },
-      "match_score": 0.95,
-      "matched_capabilities": [
-        "codebase_access",
-        "github_issue_read"
-      ],
-      "missing_capabilities": [],
-      "trust_level": "medium",
-      "risk_level": "high",
-      "risk_reasons": [
-        "候选涉及仓库写入权限，需要人工确认后再启用。",
-        "候选需要连接外部服务，可能涉及账号或 token。"
-      ],
-      "reason": "占位评分：基于能力关键词重合、扩展类型一致性和权限风险生成。"
-    },
-    {
-      "candidate": {
-        "name": "paper-review-skill-template",
-        "extension_type": "skill",
-        "source_url": "cache://skills/paper-review",
-        "description": "A cached Skill-style template for structured paper review and formatting checks.",
-        "capabilities": [
-          "writing_review",
-          "structure_check",
-          "citation_check"
-        ],
-        "installation": "Copy the skill folder into a Claude skills directory.",
-        "dependencies": [],
-        "permissions": [
-          "read_documents"
-        ],
-        "maintainer": "SkillPilot demo cache",
-        "last_updated": "2026-06-05",
-        "evidence": [
-          "Demo cache entry describes review workflow and output sections."
-        ]
-      },
-      "match_score": 0.0,
-      "matched_capabilities": [],
-      "missing_capabilities": [
-        "codebase_access",
-        "github_issue_read"
-      ],
-      "trust_level": "medium",
-      "risk_level": "low",
-      "risk_reasons": [
-        "候选主要是说明型能力，当前占位评估未发现高风险权限。"
-      ],
-      "reason": "占位评分：基于能力关键词重合、扩展类型一致性和权限风险生成。"
-    },
-    {
-      "candidate": {
-        "name": "python-test-helper-skill",
-        "extension_type": "skill",
-        "source_url": "cache://skills/python-tests",
-        "description": "A cached Skill-style candidate for generating Python test plans and failure analysis prompts.",
-        "capabilities": [
-          "generate_tests",
-          "analyze_test_failures",
-          "test_plan"
-        ],
-        "installation": "Copy the skill folder into a Claude skills directory.",
-        "dependencies": [],
-        "permissions": [
-          "read_code"
-        ],
-        "maintainer": "SkillPilot demo cache",
-        "last_updated": "2026-06-05",
-        "evidence": [
-          "Demo cache entry includes test generation and failure analysis."
-        ]
-      },
-      "match_score": 0.0,
-      "matched_capabilities": [],
-      "missing_capabilities": [
-        "codebase_access",
-        "github_issue_read"
-      ],
-      "trust_level": "medium",
-      "risk_level": "low",
-      "risk_reasons": [
-        "候选主要是说明型能力，当前占位评估未发现高风险权限。"
-      ],
-      "reason": "占位评分：基于能力关键词重合、扩展类型一致性和权限风险生成。"
-    }
-  ],
+  "search_results": [],
+  "retrieved_contents": [],
+  "evaluations": [],
   "decision": {
-    "decision_type": "recommend_with_custom_extension",
-    "reason": "候选资源有一定相关性，但仍建议用自定义 Skill 补齐缺口。",
-    "selected_candidates": [
-      {
-        "candidate": {
-          "name": "github-issue-workflow-mcp",
-          "extension_type": "mcp",
-          "source_url": "cache://mcp/github-issues",
-          "description": "A cached MCP-style candidate for reading GitHub issues and coordinating code changes.",
-          "capabilities": [
-            "github_issue_read",
-            "codebase_access",
-            "change_planning"
-          ],
-          "installation": "Configure a GitHub token and register the MCP server manually.",
-          "dependencies": [
-            "github_token"
-          ],
-          "permissions": [
-            "external_service",
-            "read_repository",
-            "write_repository"
-          ],
-          "maintainer": "SkillPilot demo cache",
-          "last_updated": "2026-06-05",
-          "evidence": [
-            "Demo cache entry highlights GitHub access and repository permissions."
-          ]
-        },
-        "match_score": 0.95,
-        "matched_capabilities": [
-          "codebase_access",
-          "github_issue_read"
-        ],
-        "missing_capabilities": [],
-        "trust_level": "medium",
-        "risk_level": "high",
-        "risk_reasons": [
-          "候选涉及仓库写入权限，需要人工确认后再启用。",
-          "候选需要连接外部服务，可能涉及账号或 token。"
-        ],
-        "reason": "占位评分：基于能力关键词重合、扩展类型一致性和权限风险生成。"
-      },
-      {
-        "candidate": {
-          "name": "paper-review-skill-template",
-          "extension_type": "skill",
-          "source_url": "cache://skills/paper-review",
-          "description": "A cached Skill-style template for structured paper review and formatting checks.",
-          "capabilities": [
-            "writing_review",
-            "structure_check",
-            "citation_check"
-          ],
-          "installation": "Copy the skill folder into a Claude skills directory.",
-          "dependencies": [],
-          "permissions": [
-            "read_documents"
-          ],
-          "maintainer": "SkillPilot demo cache",
-          "last_updated": "2026-06-05",
-          "evidence": [
-            "Demo cache entry describes review workflow and output sections."
-          ]
-        },
-        "match_score": 0.0,
-        "matched_capabilities": [],
-        "missing_capabilities": [
-          "codebase_access",
-          "github_issue_read"
-        ],
-        "trust_level": "medium",
-        "risk_level": "low",
-        "risk_reasons": [
-          "候选主要是说明型能力，当前占位评估未发现高风险权限。"
-        ],
-        "reason": "占位评分：基于能力关键词重合、扩展类型一致性和权限风险生成。"
-      },
-      {
-        "candidate": {
-          "name": "python-test-helper-skill",
-          "extension_type": "skill",
-          "source_url": "cache://skills/python-tests",
-          "description": "A cached Skill-style candidate for generating Python test plans and failure analysis prompts.",
-          "capabilities": [
-            "generate_tests",
-            "analyze_test_failures",
-            "test_plan"
-          ],
-          "installation": "Copy the skill folder into a Claude skills directory.",
-          "dependencies": [],
-          "permissions": [
-            "read_code"
-          ],
-          "maintainer": "SkillPilot demo cache",
-          "last_updated": "2026-06-05",
-          "evidence": [
-            "Demo cache entry includes test generation and failure analysis."
-          ]
-        },
-        "match_score": 0.0,
-        "matched_capabilities": [],
-        "missing_capabilities": [
-          "codebase_access",
-          "github_issue_read"
-        ],
-        "trust_level": "medium",
-        "risk_level": "low",
-        "risk_reasons": [
-          "候选主要是说明型能力，当前占位评估未发现高风险权限。"
-        ],
-        "reason": "占位评分：基于能力关键词重合、扩展类型一致性和权限风险生成。"
-      }
-    ],
-    "custom_skill_name": "homework-knowledge-hint"
+    "decision_type": "build_custom_skill",
+    "reason": "用户显式请求构造 Skill，直接进入 SkillBuilder Agent。",
+    "selected_candidates": [],
+    "custom_skill_name": "xiaohongshu-collage-composer"
   },
   "report_path": "/home/achewwa/Projects/SkillPilot/outputs/recommendation_report.md",
   "trace_path": "/home/achewwa/Projects/SkillPilot/outputs/decision_trace.json",
   "skill_draft": {
-    "name": "homework-knowledge-hint",
-    "path": "/home/achewwa/Projects/SkillPilot/generated_skills/homework-knowledge-hint",
+    "name": "xiaohongshu-collage-composer",
+    "path": "/home/achewwa/Projects/SkillPilot/generated_skills/xiaohongshu-collage-composer",
     "files": [
-      "/home/achewwa/Projects/SkillPilot/generated_skills/homework-knowledge-hint/SKILL.md",
-      "/home/achewwa/Projects/SkillPilot/generated_skills/homework-knowledge-hint/resources/hint_policy.md",
-      "/home/achewwa/Projects/SkillPilot/generated_skills/homework-knowledge-hint/resources/output_template.md",
-      "/home/achewwa/Projects/SkillPilot/generated_skills/homework-knowledge-hint/examples/sample_output.md"
-    ]
+      "/home/achewwa/Projects/SkillPilot/generated_skills/xiaohongshu-collage-composer/SKILL.md",
+      "/home/achewwa/Projects/SkillPilot/generated_skills/xiaohongshu-collage-composer/resources/layout_presets.json",
+      "/home/achewwa/Projects/SkillPilot/generated_skills/xiaohongshu-collage-composer/resources/decorations/papers",
+      "/home/achewwa/Projects/SkillPilot/generated_skills/xiaohongshu-collage-composer/resources/decorations/tapes",
+      "/home/achewwa/Projects/SkillPilot/generated_skills/xiaohongshu-collage-composer/resources/decorations/elements",
+      "/home/achewwa/Projects/SkillPilot/generated_skills/xiaohongshu-collage-composer/resources/style_guide.md",
+      "/home/achewwa/Projects/SkillPilot/generated_skills/xiaohongshu-collage-composer/examples/example_7_photos.md",
+      "/home/achewwa/Projects/SkillPilot/generated_skills/xiaohongshu-collage-composer/examples/example_minimal_5.md",
+      "/home/achewwa/Projects/SkillPilot/generated_skills/xiaohongshu-collage-composer/examples/example_error_too_few.md",
+      "/home/achewwa/Projects/SkillPilot/generated_skills/xiaohongshu-collage-composer/README.md",
+      "/home/achewwa/Projects/SkillPilot/generated_skills/xiaohongshu-collage-composer/scripts/README.md"
+    ],
+    "spec_summary": "将 5-9 张用户照片合成为 3:4 竖向、拼贴混搭风格的小红书组图成品 PNG。自动决定错落叠放、旋转、内置纸质/手绘装饰素材，并基于输入图片自动提取主色生成统一艺术调性。不添加任何文字。",
+    "safety_review": {
+      "allowed": true,
+      "risk_level": "medium",
+      "risk_reasons": [
+        "规格要求生成辅助脚本，必须在人工审查后才可启用。"
+      ],
+      "safe_alternatives": [
+        "保持 Skill 为说明、模板和检查清单，不自动连接外部系统。",
+        "需要外部工具时，只给出人工配置建议。"
+      ]
+    },
+    "builder_session": {
+      "phase": "complete",
+      "turns": [
+        {
+          "turn_index": 1,
+          "questions": [
+            {
+              "question_id": "q1_use_scenario",
+              "prompt": "这个图片组图工具主要用在什么场景？",
+              "reason": "了解使用场景有助于确定 Skill 的输入规模、风格倾向和默认参数。",
+              "required": true,
+              "options": [
+                {
+                  "option_id": "q1_opt_social",
+                  "label": "社交媒体分享",
+                  "detail": "用于 Instagram、小红书、朋友圈等平台的九宫格或拼图发布，注重视觉吸引力和平台尺寸适配。"
+                },
+                {
+                  "option_id": "q1_opt_album",
+                  "label": "个人相册纪念",
+                  "detail": "用于整理旅行、活动、家庭照片，制作有故事性的组图作为纪念或打印留存。"
+                },
+                {
+                  "option_id": "q1_opt_design",
+                  "label": "专业设计素材",
+                  "detail": "作为海报、作品集、营销物料的一部分，需要精细排版控制和高分辨率输出。"
+                }
+              ],
+              "allow_free_text": true
+            },
+            {
+              "question_id": "q2_artistic_style",
+              "prompt": "\"艺术感\"具体倾向哪种风格？",
+              "reason": "艺术感是主观概念，需明确具体风格方向才能在 Skill 中给出可执行的排版与配色规则。",
+              "required": true,
+              "options": [
+                {
+                  "option_id": "q2_opt_minimal",
+                  "label": "极简留白风",
+                  "detail": "大量留白、规整网格、统一色调，强调干净与高级感，类似杂志排版。"
+                },
+                {
+                  "option_id": "q2_opt_collage",
+                  "label": "拼贴混搭风",
+                  "detail": "图片错落叠放、旋转倾斜、加入手绘元素或纸质纹理，呈现自由随性的拼贴感。"
+                },
+                {
+                  "option_id": "q2_opt_filmic",
+                  "label": "胶片复古风",
+                  "detail": "统一胶片色调滤镜、做旧边框、加入颗粒感，营造怀旧氛围。"
+                }
+              ],
+              "allow_free_text": true
+            },
+            {
+              "question_id": "q3_output_format",
+              "prompt": "希望 Skill 最终交付什么形式的产物？",
+              "reason": "输出形式决定 Skill 是否需要调用图像处理代码、生成模板文件，还是仅输出排版方案描述。",
+              "required": true,
+              "options": [
+                {
+                  "option_id": "q3_opt_image",
+                  "label": "直接生成成品图片",
+                  "detail": "通过代码（如 PIL/Pillow）合成最终的 PNG/JPG 组图文件，用户可直接使用。"
+                },
+                {
+                  "option_id": "q3_opt_plan",
+                  "label": "输出排版方案与参数",
+                  "detail": "给出网格布局、配色、滤镜、字体等具体方案描述，由用户自行在设计工具中实现。"
+                },
+                {
+                  "option_id": "q3_opt_template",
+                  "label": "生成可编辑模板",
+                  "detail": "输出 SVG、HTML/CSS 或设计软件可识别的模板文件，便于后续调整。"
+                }
+              ],
+              "allow_free_text": true
+            }
+          ],
+          "answers": {
+            "q1_use_scenario": "1",
+            "q2_artistic_style": "2",
+            "q3_output_format": "1"
+          },
+          "reflection": "第 1 轮已收集字段：q1_use_scenario、q2_artistic_style、q3_output_format。"
+        },
+        {
+          "turn_index": 2,
+          "questions": [
+            {
+              "question_id": "q2_1_input_scale",
+              "prompt": "用户单次会提供多少张图片，Skill 需要支持的输入规模是怎样的？",
+              "reason": "社交媒体拼贴风的排版方案与图片数量强相关（如 3 张错落 vs 9 张密铺），需明确输入规模以设计默认布局逻辑和参数范围。",
+              "required": true,
+              "options": [
+                {
+                  "option_id": "q2_1_opt_small",
+                  "label": "少量精选（2-4 张）",
+                  "detail": "每次输入 2 到 4 张图，强调单张图片的展示空间，拼贴时图片可较大、错落感更突出，适合重点照片的艺术化呈现。"
+                },
+                {
+                  "option_id": "q2_1_opt_medium",
+                  "label": "中等数量（5-9 张）",
+                  "detail": "每次输入 5 到 9 张图，适合典型的九宫格或多图拼贴布局，需要在拼贴风中平衡错落感与整体协调。"
+                },
+                {
+                  "option_id": "q2_1_opt_flexible",
+                  "label": "灵活可变（2-20 张以上）",
+                  "detail": "Skill 需根据传入数量动态选择布局策略，不固定图片数，要求排版算法具备自适应能力。"
+                }
+              ],
+              "allow_free_text": true
+            },
+            {
+              "question_id": "q2_2_platform_size",
+              "prompt": "成品图片需要适配哪些社交平台的尺寸规格？",
+              "reason": "社交媒体分享场景下，不同平台对画幅比例有硬性要求（如小红书 3:4、Instagram 1:1），决定 Skill 是否需输出多套尺寸或允许用户指定。",
+              "required": true,
+              "options": [
+                {
+                  "option_id": "q2_2_opt_xiaohongshu",
+                  "label": "小红书优先（3:4 竖图）",
+                  "detail": "默认输出 3:4 比例的竖向组图，画幅适配小红书首图与浏览流，分辨率以 1242×1656 为基准。"
+                },
+                {
+                  "option_id": "q2_2_opt_instagram",
+                  "label": "Instagram 优先（1:1 方图或九宫格）",
+                  "detail": "默认输出 1:1 方形组图或拆分为九宫格的 3 张/9 张子图，适配 Feed 与 Grid 展示。"
+                },
+                {
+                  "option_id": "q2_2_opt_multi",
+                  "label": "多平台一次性导出",
+                  "detail": "同一组图片同时生成 1:1、3:4、9:16 等多种比例的版本，方便用户在不同平台复用。"
+                }
+              ],
+              "allow_free_text": true
+            },
+            {
+              "question_id": "q2_3_collage_control",
+              "prompt": "拼贴混搭的艺术细节（旋转、叠放、装饰元素）希望由 Skill 自动决定还是用户可控？",
+              "reason": "拼贴风的艺术感很大程度依赖随机性与装饰元素，需明确自动化程度才能决定 Skill 是输出固定方案还是暴露参数接口。",
+              "required": true,
+              "options": [
+                {
+                  "option_id": "q2_3_opt_auto",
+                  "label": "全自动一键出图",
+                  "detail": "用户只需上传图片，Skill 自动决定旋转角度、叠放顺序、装饰纹理与配色，输出即用。"
+                },
+                {
+                  "option_id": "q2_3_opt_preset",
+                  "label": "提供风格预设可选",
+                  "detail": "Skill 内置若干拼贴预设（如\"杂志页\"\"拍立得\"\"手账风\"），用户从中选择一种，其余细节自动生成。"
+                },
+                {
+                  "option_id": "q2_3_opt_param",
+                  "label": "开放参数精细调整",
+                  "detail": "允许用户传入旋转范围、间距、背景纹理、装饰元素开关等参数，Skill 据此生成更可控的拼贴结果。"
+                }
+              ],
+              "allow_free_text": true
+            }
+          ],
+          "answers": {
+            "q2_1_input_scale": "2",
+            "q2_2_platform_size": "1",
+            "q2_3_collage_control": "1"
+          },
+          "reflection": "第 2 轮已收集字段：q2_1_input_scale、q2_2_platform_size、q2_3_collage_control。"
+        },
+        {
+          "turn_index": 3,
+          "questions": [
+            {
+              "question_id": "q3_1_decoration_source",
+              "prompt": "拼贴风格中的装饰元素（手绘涂鸦、纸质纹理、贴纸等）应该如何获取？",
+              "reason": "全自动一键出图需要 Skill 自行调度装饰素材，明确素材来源决定 Skill 是内置资源包、调用在线素材库还是程序化生成。",
+              "required": true,
+              "options": [
+                {
+                  "option_id": "q3_1_opt_bundled",
+                  "label": "内置素材包随 Skill 分发",
+                  "detail": "在 Skill 的 resources 目录内置一组手绘笔触、胶带、纸纹、贴纸等 PNG/SVG 素材，离线即可使用，结果稳定可复现。"
+                },
+                {
+                  "option_id": "q3_1_opt_procedural",
+                  "label": "程序化生成装饰",
+                  "detail": "通过 PIL/Pillow 或 numpy 在运行时绘制噪点、颗粒、几何形状、半透明色块等装饰，不依赖外部素材文件。"
+                },
+                {
+                  "option_id": "q3_1_opt_hybrid",
+                  "label": "内置基础素材 + 程序化点缀",
+                  "detail": "少量必需素材（如纸纹底图、几款胶带）内置，旋转角度、随机色块、文字标签等通过代码生成，兼顾艺术感与轻量化。"
+                }
+              ],
+              "allow_free_text": true
+            },
+            {
+              "question_id": "q3_2_color_strategy",
+              "prompt": "3:4 竖向拼贴组图的整体配色应如何确定，以保证\"艺术感\"统一？",
+              "reason": "小红书风格强烈依赖统一色调，需明确配色策略以决定 Skill 是从图片中提取主色、套用预设色板还是允许用户传入。",
+              "required": true,
+              "options": [
+                {
+                  "option_id": "q3_2_opt_extract",
+                  "label": "从输入图片自动提取主色",
+                  "detail": "对上传图片做主色聚类，生成与照片协调的背景色、胶带色与文字色，保证组图整体调性一致。"
+                },
+                {
+                  "option_id": "q3_2_opt_preset_palette",
+                  "label": "使用内置艺术色板",
+                  "detail": "Skill 内置若干小红书常见色板（莫兰迪、奶油咖、复古胶片等），自动随机或按图片基调匹配一套。"
+                },
+                {
+                  "option_id": "q3_2_opt_mono_paper",
+                  "label": "统一米白/牛皮纸底色",
+                  "detail": "始终使用偏暖的纸质底色作为画布，所有图片在统一背景上呈现，配色由底色与图片自身完成。"
+                }
+              ],
+              "allow_free_text": true
+            },
+            {
+              "question_id": "q3_3_text_caption",
+              "prompt": "组图中是否需要 Skill 自动添加文字（标题、日期、手写体短句等）？",
+              "reason": "小红书拼贴常带手写文字点缀，是否包含文字直接影响 Skill 是否需处理字体资源、文本布局与中文渲染。",
+              "required": true,
+              "options": [
+                {
+                  "option_id": "q3_3_opt_none",
+                  "label": "不加任何文字",
+                  "detail": "Skill 仅做图片拼贴与装饰，所有文字交由用户后期在其他工具中添加，避免字体版权与中文渲染问题。"
+                },
+                {
+                  "option_id": "q3_3_opt_auto_caption",
+                  "label": "自动添加点缀文字",
+                  "detail": "Skill 在拼贴中随机加入日期、星期、简短英文短句或手写体装饰文字，使用内置免费可商用字体。"
+                },
+                {
+                  "option_id": "q3_3_opt_user_text",
+                  "label": "用户传入文字内容",
+                  "detail": "用户在调用时提供标题/短句，Skill 负责选定字体、位置、旋转与样式，将文字融入拼贴。"
+                }
+              ],
+              "allow_free_text": true
+            }
+          ],
+          "answers": {
+            "q3_1_decoration_source": "1",
+            "q3_2_color_strategy": "1",
+            "q3_3_text_caption": "1"
+          },
+          "reflection": "第 3 轮已收集字段：q3_1_decoration_source、q3_2_color_strategy、q3_3_text_caption。"
+        }
+      ],
+      "information_sufficient": true,
+      "reflection": "达到最大澄清轮数，使用已收集信息保守生成 Skill。",
+      "spec": {
+        "name": "Xiaohongshu Collage Composer",
+        "slug": "xiaohongshu-collage-composer",
+        "description": "将 5-9 张用户照片合成为 3:4 竖向、拼贴混搭风格的小红书组图成品 PNG。自动决定错落叠放、旋转、内置纸质/手绘装饰素材，并基于输入图片自动提取主色生成统一艺术调性。不添加任何文字。",
+        "when_to_use": [
+          "The user request is related to image_composition.",
+          "The user asks for a repeatable workflow rather than a one-off answer.",
+          "The task benefits from clear constraints, examples, or output templates."
+        ],
+        "workflow": [
+          "步骤 1 输入校验：确认用户提供 5-9 张本地图片路径（支持 JPG/PNG）。少于 5 张或多于 9 张时，提示用户调整数量并说明 Skill 的设计范围；非本地路径或无法读取时直接报错退出。",
+          "步骤 2 读取与归一：使用 Pillow 打开所有图片，按 EXIF 方向纠正，统一缩放至最长边不超过 1200px 以控制内存与速度。",
+          "步骤 3 主色提取：对所有输入图片做小尺寸缩略并合并像素，使用 KMeans（k=5）聚类提取主色板，挑选 1 个偏暖中性色作为画布底色、1 个作为装饰强调色、并生成 2-3 个胶带色（饱和度降低、明度统一），保证整体调性一致。",
+          "步骤 4 布局生成：根据图片数量从 resources/layout_presets.json 中选择对应 3:4 画布的拼贴模板（5/6/7/8/9 张各一套），模板定义每张图的中心点、相对尺寸、基础旋转范围和层叠顺序；每张图在模板范围内随机微调位置（±20px）与旋转（±8°）以呈现自然错落感。",
+          "步骤 5 装饰渲染：在 resources/decorations/ 中按需选取纸纹底图作为画布背景层（叠加步骤 3 的底色），从胶带 PNG 中为每张图片随机选择 1-2 段贴在边角，从手绘元素中随机添加 2-4 个点缀，所有装饰使用步骤 3 的色板做色相微调以融入主色。",
+          "步骤 6 合成与输出：在 1242×1656 画布上按层叠顺序合成：背景纸纹 → 装饰底层（色块/手绘）→ 图片（带轻微白边与阴影）→ 胶带与上层手绘。保存为 PNG 到用户指定路径或默认 ./output/collage_<timestamp>.png，并向用户报告输出路径、所用布局编号与提取色板。",
+          "步骤 7 异常处理：scripts 调用失败、依赖缺失（Pillow/numpy/scikit-learn）、内存不足、素材缺失等情况下，给出明确错误信息与修复建议，不静默回退。"
+        ],
+        "constraints": [
+          "仅处理用户本地路径下的图片文件，不下载远程 URL、不访问网络。",
+          "输入数量严格限定 5-9 张；越界时不静默裁剪或补全，直接提示用户调整。",
+          "输出固定为 3:4 竖向 PNG，分辨率基准 1242×1656；不输出 1:1、9:16 或其他比例。",
+          "不向组图中添加任何文字、日期、标题或字体渲染；如用户要求加文字，应明确告知本 Skill 不支持并建议在其他工具中后期添加。",
+          "装饰素材仅使用 resources/decorations/ 内置文件，不调用在线素材库、不生成 AI 图像。",
+          "保留输入图片原始内容，不做美颜、换脸、风格迁移等会改变图像语义的处理；仅允许轻微缩放、旋转、白边、阴影和整体亮度/饱和度的统一微调（≤10%）。",
+          "不读取或修改输入图片所在目录之外的任何文件；输出目录在调用时显式指定，默认 ./output/。",
+          "不保留或上传用户图片到任何外部位置；处理过程仅在本地内存与指定输出路径完成。",
+          "随机化使用可重置种子（可通过参数 seed 传入），保证同输入可复现结果。"
+        ],
+        "output_format": "向用户返回一段简洁的结构化文本，包含：① 输出文件绝对路径；② 使用的布局预设编号（如 layout_7_a）；③ 从输入图片提取的主色板（HEX 列表）；④ 随机种子；⑤ 如有警告（例如某张图过窄被裁剪）逐条列出。不返回 base64 图片数据，不返回完整 JSON 元数据，除非用户显式要求。",
+        "resources": [
+          {
+            "path": "resources/layout_presets.json",
+            "purpose": "为 5/6/7/8/9 张输入分别预定义 3:4 画布上的拼贴布局模板（中心点、相对尺寸、旋转范围、层叠顺序）。",
+            "content_hint": "JSON 结构：{\"layout_5_a\": {\"canvas\": [1242,1656], \"slots\": [{\"cx\": 420, \"cy\": 500, \"w\": 560, \"h\": 700, \"rot_range\": [-6,6], \"z\": 1}, ...]}, ...}，每个数量提供 1-2 套模板。"
+          },
+          {
+            "path": "resources/decorations/papers/",
+            "purpose": "内置牛皮纸、米白纸、轻噪点纸纹背景素材，作为画布底层。",
+            "content_hint": "3-5 张 1242×1656 的纸纹 PNG，灰度或低饱和暖色，便于后续叠加主色。"
+          },
+          {
+            "path": "resources/decorations/tapes/",
+            "purpose": "胶带 PNG 素材，用于贴在照片边角，呈现拼贴感。",
+            "content_hint": "10-15 段透明背景 PNG 胶带，长度 200-400px，含磨砂边缘和半透明效果，运行时通过色相旋转匹配主色板。"
+          },
+          {
+            "path": "resources/decorations/elements/",
+            "purpose": "手绘点缀元素 PNG，用于装饰拼贴空白处。",
+            "content_hint": "15-25 个透明背景手绘元素：星星、爱心、波浪线、小植物、几何块等；统一线稿风格，便于色相微调。"
+          },
+          {
+            "path": "resources/style_guide.md",
+            "purpose": "向 Claude 说明拼贴混搭风的视觉准则与素材使用策略。",
+            "content_hint": "包含：色板提取规则、胶带/手绘元素的密度上限、白边与阴影参数、布局选择决策树、可复现性约定。"
+          }
+        ],
+        "examples": [
+          {
+            "path": "examples/example_7_photos.md",
+            "purpose": "展示 7 张旅行照片输入下的完整调用流程与输出结果说明。",
+            "content_hint": "包含：输入路径列表、调用命令、提取色板示例（#E8D9C0 等）、所选布局编号、输出文件预览描述、随机种子。"
+          },
+          {
+            "path": "examples/example_minimal_5.md",
+            "purpose": "展示最少 5 张输入下的简单调用示例。",
+            "content_hint": "5 张人像/物品照片输入，演示默认参数下的最简调用与输出说明。"
+          },
+          {
+            "path": "examples/example_error_too_few.md",
+            "purpose": "展示输入少于 5 张时 Skill 的拒绝与提示行为。",
+            "content_hint": "用户传入 3 张图片，Skill 应输出明确提示并不生成结果。"
+          }
+        ],
+        "requires_scripts": true,
+        "script_notes": [],
+        "packaging_notes": [
+          "Review `SKILL.md` before installing or sharing the generated draft.",
+          "Keep examples generic until you have verified them against real course or project material.",
+          "Because the safety review is not low risk, test this Skill in a limited scope first.",
+          "Do not run or distribute scripts until they pass manual security review."
+        ]
+      },
+      "safety_review": {
+        "allowed": true,
+        "risk_level": "medium",
+        "risk_reasons": [
+          "规格要求生成辅助脚本，必须在人工审查后才可启用。"
+        ],
+        "safe_alternatives": [
+          "保持 Skill 为说明、模板和检查清单，不自动连接外部系统。",
+          "需要外部工具时，只给出人工配置建议。"
+        ]
+      }
+    },
+    "warnings": []
   },
-  "created_at": "2026-06-05T08:45:21.325100+00:00"
+  "builder_session": {
+    "phase": "complete",
+    "turns": [
+      {
+        "turn_index": 1,
+        "questions": [
+          {
+            "question_id": "q1_use_scenario",
+            "prompt": "这个图片组图工具主要用在什么场景？",
+            "reason": "了解使用场景有助于确定 Skill 的输入规模、风格倾向和默认参数。",
+            "required": true,
+            "options": [
+              {
+                "option_id": "q1_opt_social",
+                "label": "社交媒体分享",
+                "detail": "用于 Instagram、小红书、朋友圈等平台的九宫格或拼图发布，注重视觉吸引力和平台尺寸适配。"
+              },
+              {
+                "option_id": "q1_opt_album",
+                "label": "个人相册纪念",
+                "detail": "用于整理旅行、活动、家庭照片，制作有故事性的组图作为纪念或打印留存。"
+              },
+              {
+                "option_id": "q1_opt_design",
+                "label": "专业设计素材",
+                "detail": "作为海报、作品集、营销物料的一部分，需要精细排版控制和高分辨率输出。"
+              }
+            ],
+            "allow_free_text": true
+          },
+          {
+            "question_id": "q2_artistic_style",
+            "prompt": "\"艺术感\"具体倾向哪种风格？",
+            "reason": "艺术感是主观概念，需明确具体风格方向才能在 Skill 中给出可执行的排版与配色规则。",
+            "required": true,
+            "options": [
+              {
+                "option_id": "q2_opt_minimal",
+                "label": "极简留白风",
+                "detail": "大量留白、规整网格、统一色调，强调干净与高级感，类似杂志排版。"
+              },
+              {
+                "option_id": "q2_opt_collage",
+                "label": "拼贴混搭风",
+                "detail": "图片错落叠放、旋转倾斜、加入手绘元素或纸质纹理，呈现自由随性的拼贴感。"
+              },
+              {
+                "option_id": "q2_opt_filmic",
+                "label": "胶片复古风",
+                "detail": "统一胶片色调滤镜、做旧边框、加入颗粒感，营造怀旧氛围。"
+              }
+            ],
+            "allow_free_text": true
+          },
+          {
+            "question_id": "q3_output_format",
+            "prompt": "希望 Skill 最终交付什么形式的产物？",
+            "reason": "输出形式决定 Skill 是否需要调用图像处理代码、生成模板文件，还是仅输出排版方案描述。",
+            "required": true,
+            "options": [
+              {
+                "option_id": "q3_opt_image",
+                "label": "直接生成成品图片",
+                "detail": "通过代码（如 PIL/Pillow）合成最终的 PNG/JPG 组图文件，用户可直接使用。"
+              },
+              {
+                "option_id": "q3_opt_plan",
+                "label": "输出排版方案与参数",
+                "detail": "给出网格布局、配色、滤镜、字体等具体方案描述，由用户自行在设计工具中实现。"
+              },
+              {
+                "option_id": "q3_opt_template",
+                "label": "生成可编辑模板",
+                "detail": "输出 SVG、HTML/CSS 或设计软件可识别的模板文件，便于后续调整。"
+              }
+            ],
+            "allow_free_text": true
+          }
+        ],
+        "answers": {
+          "q1_use_scenario": "1",
+          "q2_artistic_style": "2",
+          "q3_output_format": "1"
+        },
+        "reflection": "第 1 轮已收集字段：q1_use_scenario、q2_artistic_style、q3_output_format。"
+      },
+      {
+        "turn_index": 2,
+        "questions": [
+          {
+            "question_id": "q2_1_input_scale",
+            "prompt": "用户单次会提供多少张图片，Skill 需要支持的输入规模是怎样的？",
+            "reason": "社交媒体拼贴风的排版方案与图片数量强相关（如 3 张错落 vs 9 张密铺），需明确输入规模以设计默认布局逻辑和参数范围。",
+            "required": true,
+            "options": [
+              {
+                "option_id": "q2_1_opt_small",
+                "label": "少量精选（2-4 张）",
+                "detail": "每次输入 2 到 4 张图，强调单张图片的展示空间，拼贴时图片可较大、错落感更突出，适合重点照片的艺术化呈现。"
+              },
+              {
+                "option_id": "q2_1_opt_medium",
+                "label": "中等数量（5-9 张）",
+                "detail": "每次输入 5 到 9 张图，适合典型的九宫格或多图拼贴布局，需要在拼贴风中平衡错落感与整体协调。"
+              },
+              {
+                "option_id": "q2_1_opt_flexible",
+                "label": "灵活可变（2-20 张以上）",
+                "detail": "Skill 需根据传入数量动态选择布局策略，不固定图片数，要求排版算法具备自适应能力。"
+              }
+            ],
+            "allow_free_text": true
+          },
+          {
+            "question_id": "q2_2_platform_size",
+            "prompt": "成品图片需要适配哪些社交平台的尺寸规格？",
+            "reason": "社交媒体分享场景下，不同平台对画幅比例有硬性要求（如小红书 3:4、Instagram 1:1），决定 Skill 是否需输出多套尺寸或允许用户指定。",
+            "required": true,
+            "options": [
+              {
+                "option_id": "q2_2_opt_xiaohongshu",
+                "label": "小红书优先（3:4 竖图）",
+                "detail": "默认输出 3:4 比例的竖向组图，画幅适配小红书首图与浏览流，分辨率以 1242×1656 为基准。"
+              },
+              {
+                "option_id": "q2_2_opt_instagram",
+                "label": "Instagram 优先（1:1 方图或九宫格）",
+                "detail": "默认输出 1:1 方形组图或拆分为九宫格的 3 张/9 张子图，适配 Feed 与 Grid 展示。"
+              },
+              {
+                "option_id": "q2_2_opt_multi",
+                "label": "多平台一次性导出",
+                "detail": "同一组图片同时生成 1:1、3:4、9:16 等多种比例的版本，方便用户在不同平台复用。"
+              }
+            ],
+            "allow_free_text": true
+          },
+          {
+            "question_id": "q2_3_collage_control",
+            "prompt": "拼贴混搭的艺术细节（旋转、叠放、装饰元素）希望由 Skill 自动决定还是用户可控？",
+            "reason": "拼贴风的艺术感很大程度依赖随机性与装饰元素，需明确自动化程度才能决定 Skill 是输出固定方案还是暴露参数接口。",
+            "required": true,
+            "options": [
+              {
+                "option_id": "q2_3_opt_auto",
+                "label": "全自动一键出图",
+                "detail": "用户只需上传图片，Skill 自动决定旋转角度、叠放顺序、装饰纹理与配色，输出即用。"
+              },
+              {
+                "option_id": "q2_3_opt_preset",
+                "label": "提供风格预设可选",
+                "detail": "Skill 内置若干拼贴预设（如\"杂志页\"\"拍立得\"\"手账风\"），用户从中选择一种，其余细节自动生成。"
+              },
+              {
+                "option_id": "q2_3_opt_param",
+                "label": "开放参数精细调整",
+                "detail": "允许用户传入旋转范围、间距、背景纹理、装饰元素开关等参数，Skill 据此生成更可控的拼贴结果。"
+              }
+            ],
+            "allow_free_text": true
+          }
+        ],
+        "answers": {
+          "q2_1_input_scale": "2",
+          "q2_2_platform_size": "1",
+          "q2_3_collage_control": "1"
+        },
+        "reflection": "第 2 轮已收集字段：q2_1_input_scale、q2_2_platform_size、q2_3_collage_control。"
+      },
+      {
+        "turn_index": 3,
+        "questions": [
+          {
+            "question_id": "q3_1_decoration_source",
+            "prompt": "拼贴风格中的装饰元素（手绘涂鸦、纸质纹理、贴纸等）应该如何获取？",
+            "reason": "全自动一键出图需要 Skill 自行调度装饰素材，明确素材来源决定 Skill 是内置资源包、调用在线素材库还是程序化生成。",
+            "required": true,
+            "options": [
+              {
+                "option_id": "q3_1_opt_bundled",
+                "label": "内置素材包随 Skill 分发",
+                "detail": "在 Skill 的 resources 目录内置一组手绘笔触、胶带、纸纹、贴纸等 PNG/SVG 素材，离线即可使用，结果稳定可复现。"
+              },
+              {
+                "option_id": "q3_1_opt_procedural",
+                "label": "程序化生成装饰",
+                "detail": "通过 PIL/Pillow 或 numpy 在运行时绘制噪点、颗粒、几何形状、半透明色块等装饰，不依赖外部素材文件。"
+              },
+              {
+                "option_id": "q3_1_opt_hybrid",
+                "label": "内置基础素材 + 程序化点缀",
+                "detail": "少量必需素材（如纸纹底图、几款胶带）内置，旋转角度、随机色块、文字标签等通过代码生成，兼顾艺术感与轻量化。"
+              }
+            ],
+            "allow_free_text": true
+          },
+          {
+            "question_id": "q3_2_color_strategy",
+            "prompt": "3:4 竖向拼贴组图的整体配色应如何确定，以保证\"艺术感\"统一？",
+            "reason": "小红书风格强烈依赖统一色调，需明确配色策略以决定 Skill 是从图片中提取主色、套用预设色板还是允许用户传入。",
+            "required": true,
+            "options": [
+              {
+                "option_id": "q3_2_opt_extract",
+                "label": "从输入图片自动提取主色",
+                "detail": "对上传图片做主色聚类，生成与照片协调的背景色、胶带色与文字色，保证组图整体调性一致。"
+              },
+              {
+                "option_id": "q3_2_opt_preset_palette",
+                "label": "使用内置艺术色板",
+                "detail": "Skill 内置若干小红书常见色板（莫兰迪、奶油咖、复古胶片等），自动随机或按图片基调匹配一套。"
+              },
+              {
+                "option_id": "q3_2_opt_mono_paper",
+                "label": "统一米白/牛皮纸底色",
+                "detail": "始终使用偏暖的纸质底色作为画布，所有图片在统一背景上呈现，配色由底色与图片自身完成。"
+              }
+            ],
+            "allow_free_text": true
+          },
+          {
+            "question_id": "q3_3_text_caption",
+            "prompt": "组图中是否需要 Skill 自动添加文字（标题、日期、手写体短句等）？",
+            "reason": "小红书拼贴常带手写文字点缀，是否包含文字直接影响 Skill 是否需处理字体资源、文本布局与中文渲染。",
+            "required": true,
+            "options": [
+              {
+                "option_id": "q3_3_opt_none",
+                "label": "不加任何文字",
+                "detail": "Skill 仅做图片拼贴与装饰，所有文字交由用户后期在其他工具中添加，避免字体版权与中文渲染问题。"
+              },
+              {
+                "option_id": "q3_3_opt_auto_caption",
+                "label": "自动添加点缀文字",
+                "detail": "Skill 在拼贴中随机加入日期、星期、简短英文短句或手写体装饰文字，使用内置免费可商用字体。"
+              },
+              {
+                "option_id": "q3_3_opt_user_text",
+                "label": "用户传入文字内容",
+                "detail": "用户在调用时提供标题/短句，Skill 负责选定字体、位置、旋转与样式，将文字融入拼贴。"
+              }
+            ],
+            "allow_free_text": true
+          }
+        ],
+        "answers": {
+          "q3_1_decoration_source": "1",
+          "q3_2_color_strategy": "1",
+          "q3_3_text_caption": "1"
+        },
+        "reflection": "第 3 轮已收集字段：q3_1_decoration_source、q3_2_color_strategy、q3_3_text_caption。"
+      }
+    ],
+    "information_sufficient": true,
+    "reflection": "达到最大澄清轮数，使用已收集信息保守生成 Skill。",
+    "spec": {
+      "name": "Xiaohongshu Collage Composer",
+      "slug": "xiaohongshu-collage-composer",
+      "description": "将 5-9 张用户照片合成为 3:4 竖向、拼贴混搭风格的小红书组图成品 PNG。自动决定错落叠放、旋转、内置纸质/手绘装饰素材，并基于输入图片自动提取主色生成统一艺术调性。不添加任何文字。",
+      "when_to_use": [
+        "The user request is related to image_composition.",
+        "The user asks for a repeatable workflow rather than a one-off answer.",
+        "The task benefits from clear constraints, examples, or output templates."
+      ],
+      "workflow": [
+        "步骤 1 输入校验：确认用户提供 5-9 张本地图片路径（支持 JPG/PNG）。少于 5 张或多于 9 张时，提示用户调整数量并说明 Skill 的设计范围；非本地路径或无法读取时直接报错退出。",
+        "步骤 2 读取与归一：使用 Pillow 打开所有图片，按 EXIF 方向纠正，统一缩放至最长边不超过 1200px 以控制内存与速度。",
+        "步骤 3 主色提取：对所有输入图片做小尺寸缩略并合并像素，使用 KMeans（k=5）聚类提取主色板，挑选 1 个偏暖中性色作为画布底色、1 个作为装饰强调色、并生成 2-3 个胶带色（饱和度降低、明度统一），保证整体调性一致。",
+        "步骤 4 布局生成：根据图片数量从 resources/layout_presets.json 中选择对应 3:4 画布的拼贴模板（5/6/7/8/9 张各一套），模板定义每张图的中心点、相对尺寸、基础旋转范围和层叠顺序；每张图在模板范围内随机微调位置（±20px）与旋转（±8°）以呈现自然错落感。",
+        "步骤 5 装饰渲染：在 resources/decorations/ 中按需选取纸纹底图作为画布背景层（叠加步骤 3 的底色），从胶带 PNG 中为每张图片随机选择 1-2 段贴在边角，从手绘元素中随机添加 2-4 个点缀，所有装饰使用步骤 3 的色板做色相微调以融入主色。",
+        "步骤 6 合成与输出：在 1242×1656 画布上按层叠顺序合成：背景纸纹 → 装饰底层（色块/手绘）→ 图片（带轻微白边与阴影）→ 胶带与上层手绘。保存为 PNG 到用户指定路径或默认 ./output/collage_<timestamp>.png，并向用户报告输出路径、所用布局编号与提取色板。",
+        "步骤 7 异常处理：scripts 调用失败、依赖缺失（Pillow/numpy/scikit-learn）、内存不足、素材缺失等情况下，给出明确错误信息与修复建议，不静默回退。"
+      ],
+      "constraints": [
+        "仅处理用户本地路径下的图片文件，不下载远程 URL、不访问网络。",
+        "输入数量严格限定 5-9 张；越界时不静默裁剪或补全，直接提示用户调整。",
+        "输出固定为 3:4 竖向 PNG，分辨率基准 1242×1656；不输出 1:1、9:16 或其他比例。",
+        "不向组图中添加任何文字、日期、标题或字体渲染；如用户要求加文字，应明确告知本 Skill 不支持并建议在其他工具中后期添加。",
+        "装饰素材仅使用 resources/decorations/ 内置文件，不调用在线素材库、不生成 AI 图像。",
+        "保留输入图片原始内容，不做美颜、换脸、风格迁移等会改变图像语义的处理；仅允许轻微缩放、旋转、白边、阴影和整体亮度/饱和度的统一微调（≤10%）。",
+        "不读取或修改输入图片所在目录之外的任何文件；输出目录在调用时显式指定，默认 ./output/。",
+        "不保留或上传用户图片到任何外部位置；处理过程仅在本地内存与指定输出路径完成。",
+        "随机化使用可重置种子（可通过参数 seed 传入），保证同输入可复现结果。"
+      ],
+      "output_format": "向用户返回一段简洁的结构化文本，包含：① 输出文件绝对路径；② 使用的布局预设编号（如 layout_7_a）；③ 从输入图片提取的主色板（HEX 列表）；④ 随机种子；⑤ 如有警告（例如某张图过窄被裁剪）逐条列出。不返回 base64 图片数据，不返回完整 JSON 元数据，除非用户显式要求。",
+      "resources": [
+        {
+          "path": "resources/layout_presets.json",
+          "purpose": "为 5/6/7/8/9 张输入分别预定义 3:4 画布上的拼贴布局模板（中心点、相对尺寸、旋转范围、层叠顺序）。",
+          "content_hint": "JSON 结构：{\"layout_5_a\": {\"canvas\": [1242,1656], \"slots\": [{\"cx\": 420, \"cy\": 500, \"w\": 560, \"h\": 700, \"rot_range\": [-6,6], \"z\": 1}, ...]}, ...}，每个数量提供 1-2 套模板。"
+        },
+        {
+          "path": "resources/decorations/papers/",
+          "purpose": "内置牛皮纸、米白纸、轻噪点纸纹背景素材，作为画布底层。",
+          "content_hint": "3-5 张 1242×1656 的纸纹 PNG，灰度或低饱和暖色，便于后续叠加主色。"
+        },
+        {
+          "path": "resources/decorations/tapes/",
+          "purpose": "胶带 PNG 素材，用于贴在照片边角，呈现拼贴感。",
+          "content_hint": "10-15 段透明背景 PNG 胶带，长度 200-400px，含磨砂边缘和半透明效果，运行时通过色相旋转匹配主色板。"
+        },
+        {
+          "path": "resources/decorations/elements/",
+          "purpose": "手绘点缀元素 PNG，用于装饰拼贴空白处。",
+          "content_hint": "15-25 个透明背景手绘元素：星星、爱心、波浪线、小植物、几何块等；统一线稿风格，便于色相微调。"
+        },
+        {
+          "path": "resources/style_guide.md",
+          "purpose": "向 Claude 说明拼贴混搭风的视觉准则与素材使用策略。",
+          "content_hint": "包含：色板提取规则、胶带/手绘元素的密度上限、白边与阴影参数、布局选择决策树、可复现性约定。"
+        }
+      ],
+      "examples": [
+        {
+          "path": "examples/example_7_photos.md",
+          "purpose": "展示 7 张旅行照片输入下的完整调用流程与输出结果说明。",
+          "content_hint": "包含：输入路径列表、调用命令、提取色板示例（#E8D9C0 等）、所选布局编号、输出文件预览描述、随机种子。"
+        },
+        {
+          "path": "examples/example_minimal_5.md",
+          "purpose": "展示最少 5 张输入下的简单调用示例。",
+          "content_hint": "5 张人像/物品照片输入，演示默认参数下的最简调用与输出说明。"
+        },
+        {
+          "path": "examples/example_error_too_few.md",
+          "purpose": "展示输入少于 5 张时 Skill 的拒绝与提示行为。",
+          "content_hint": "用户传入 3 张图片，Skill 应输出明确提示并不生成结果。"
+        }
+      ],
+      "requires_scripts": true,
+      "script_notes": [],
+      "packaging_notes": [
+        "Review `SKILL.md` before installing or sharing the generated draft.",
+        "Keep examples generic until you have verified them against real course or project material.",
+        "Because the safety review is not low risk, test this Skill in a limited scope first.",
+        "Do not run or distribute scripts until they pass manual security review."
+      ]
+    },
+    "safety_review": {
+      "allowed": true,
+      "risk_level": "medium",
+      "risk_reasons": [
+        "规格要求生成辅助脚本，必须在人工审查后才可启用。"
+      ],
+      "safe_alternatives": [
+        "保持 Skill 为说明、模板和检查清单，不自动连接外部系统。",
+        "需要外部工具时，只给出人工配置建议。"
+      ]
+    }
+  },
+  "created_at": "2026-06-05T18:43:17.757640+00:00"
 }

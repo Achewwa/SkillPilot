@@ -774,6 +774,13 @@ class CandidateEvaluator:
 
 
 class DecisionGate:
+    def build_custom(self, reason: str) -> Decision:
+        return Decision(
+            decision_type="build_custom_skill",
+            reason=reason,
+            selected_candidates=[],
+        )
+
     def decide(self, evaluations: list[CandidateEvaluation]) -> Decision:
         best = evaluations[0] if evaluations else None
         if best is None or best.match_score < 0.45:
@@ -784,7 +791,6 @@ class DecisionGate:
                     "进入自定义 Skill 草案流程。"
                 ),
                 selected_candidates=[],
-                custom_skill_name="homework-knowledge-hint",
             )
         if best.risk_level == "high":
             return Decision(
@@ -794,7 +800,6 @@ class DecisionGate:
                     "不建议直接安装；优先生成更小权限的自定义 Skill，并把候选作为人工审查参考。"
                 ),
                 selected_candidates=evaluations[:3],
-                custom_skill_name="homework-knowledge-hint",
             )
         if best.match_score >= 0.75 and best.risk_level != "high":
             return Decision(
@@ -806,5 +811,4 @@ class DecisionGate:
             decision_type="recommend_with_custom_extension",
             reason="候选资源有中等相关性，建议参考现有资源并用自定义 Skill 补齐缺失能力。",
             selected_candidates=evaluations[:3],
-            custom_skill_name="homework-knowledge-hint",
         )

@@ -8,6 +8,7 @@ from rich.console import Console
 
 from skillpilot.agent import SkillPilotAgent
 from skillpilot.config import load_config
+from skillpilot.models import ClarificationQuestion
 
 
 app = typer.Typer(
@@ -52,6 +53,25 @@ def _print_result(result) -> None:
     console.print(f"[bold]Trace:[/bold] {result.trace_path}")
     if result.skill_draft:
         console.print(f"[bold]Skill draft:[/bold] {result.skill_draft.path}")
+        if result.skill_draft.safety_review:
+            console.print(
+                f"[bold]Skill safety:[/bold] {result.skill_draft.safety_review.risk_level}"
+            )
+        if result.skill_draft.warnings:
+            console.print(f"  Warning: {result.skill_draft.warnings[0]}", markup=False)
+
+
+def _answer_builder_question(question: ClarificationQuestion) -> str:
+    console.print(f"\n[bold]Builder question:[/bold] {question.prompt}")
+    console.print(f"Reason: {question.reason}", markup=False)
+    if question.options:
+        console.print("Options:")
+        for option in question.options:
+            console.print(
+                f"  {option.option_id}. {option.label} - {option.detail}",
+                markup=False,
+            )
+    return typer.prompt("Choose 1/2/3 or type your own answer").strip()
 
 
 def _run_demo_case(agent: SkillPilotAgent, case: DemoCase) -> None:
@@ -95,7 +115,11 @@ def _interactive_session() -> None:
             _print_session_help()
             continue
         if user_input.startswith("/build "):
-            result = agent.build_skill(user_input.removeprefix("/build ").strip())
+            result = agent.build_skill(
+                user_input.removeprefix("/build ").strip(),
+                interactive_builder=True,
+                answer_provider=_answer_builder_question,
+            )
             _print_result(result)
             continue
         if user_input.startswith("/demo "):
@@ -106,7 +130,11 @@ def _interactive_session() -> None:
                 console.print("Unknown demo case. Use: skill, mcp, or build.")
             continue
 
-        result = agent.recommend(user_input)
+        result = agent.recommend(
+            user_input,
+            interactive_builder=True,
+            answer_provider=_answer_builder_question,
+        )
         _print_result(result)
 
 
@@ -126,8 +154,12 @@ def recommend(requirement: str) -> None:
 
 @app.command("build-skill")
 def build_skill(requirement: str) -> None:
-    """Build a placeholder custom Skill draft."""
-    result = _agent().build_skill(requirement)
+    """Build a custom Skill draft, asking clarifying questions when enabled."""
+    result = _agent().build_skill(
+        requirement,
+        interactive_builder=True,
+        answer_provider=_answer_builder_question,
+    )
     _print_result(result)
 
 

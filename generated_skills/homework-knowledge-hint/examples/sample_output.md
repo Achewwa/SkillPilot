@@ -1,16 +1,15 @@
 # Sample Output
 
-## 题目理解
+## Task Understanding
 
-这道题看起来考查某个概念与实际场景之间的关系。
+I will handle this request using the `Homework Knowledge Hint` workflow and keep the response inside the stated boundaries.
 
-## 相关知识点
+## Key Guidance
 
-- 核心概念 A
-- 判断条件 B
+- Start by clarifying the goal and available source material.
+- Follow the reusable workflow before producing the final answer.
+- Check the final response against the constraints.
 
-## 思考步骤提示
+## Safety or Boundary Notes
 
-1. 先确认题目给出的条件。
-2. 再判断这些条件对应课程中的哪条规则。
-3. 最后用自己的话组织答案。
+This sample is intentionally generic. Replace it with a real project-specific example after manual review.

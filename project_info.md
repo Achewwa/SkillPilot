@@ -1,5 +1,7 @@
 # SkillPilot Project Info
 
+不要为任何特例加上任何专门兜底选项。
+
 This file is the project memory file for cross-window synchronization. Update it whenever project scope, progress, environment, or next actions change.
 
 ## Project Summary
@@ -149,6 +151,20 @@ The project is for a course assignment on large language model agents. The curre
   - Type match remains a deterministic rule score because it is a direct comparison between classified target type and candidate type.
   - New scoring weights: capability 45%, type 15%, documentation 20%, safety 20%.
   - `SKILLPILOT_ENABLE_LLM_EVALUATION=0` can disable LLM scoring for deterministic tests; normal runtime defaults to enabled.
+- Created feature branch `feature/stage3-skillbuilder-agent` for the Stage 3 SkillBuilder Agent work.
+- Implemented the first dynamic SkillBuilder Agent path:
+  - Added builder models for clarification questions, three detail options, builder turns/sessions, Skill specs, resource specs, and safety review results.
+  - Added `SkillBuilderAgent` with explicit clarification, reflection, spec generation, safety review, and file generation phases.
+  - Added a dedicated question generation module and option generation module. Each clarification question now carries three selectable detail options while preserving free-text answers.
+  - Replaced the fixed `homework-knowledge-hint` pipeline call with dynamic Skill generation based on `SkillSpec.slug`.
+  - Added `SKILLPILOT_BUILDER_INTERACTIVE` and `SKILLPILOT_BUILDER_MAX_ROUNDS` configuration.
+  - Extended CLI `build-skill` and `/build` to show builder questions, numbered options, and free-text answer prompts.
+  - Extended reports and traces with builder session, clarification answers, generated files, and safety review results.
+  - Added tests for option generation, custom-answer collection, dynamic Skill output, and high-risk safety blocking.
+- Updated the SkillBuilder question-generation prompt so each generated question must also include three related options to improve understanding of the user's requirement.
+  - Do not add special-case fallback options for any scenario.
+  - Kept free-text answers available alongside numbered options.
+- Verified SkillBuilder Agent changes with `conda run -n skill_pilot python -m pytest`: 28 tests passed.
 
 ## Current Stage 2.1 / 2.2 Runtime Output Format
 

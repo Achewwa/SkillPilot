@@ -208,7 +208,7 @@ def test_decision_gate_builds_custom_skill_when_no_candidate_is_sufficient() -> 
 
     assert decision.decision_type == "build_custom_skill"
     assert "没有提供足够证据" in decision.reason
-    assert decision.custom_skill_name == "homework-knowledge-hint"
+    assert decision.custom_skill_name is None
 
 
 def test_report_includes_scores_failures_and_safety_advice(tmp_path) -> None:

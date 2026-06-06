@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from skillpilot.builders.skill_builder import SkillBuilder
+from skillpilot.builders.builder_agent import AnswerProvider, SkillBuilderAgent
 from skillpilot.config import AppConfig
 from skillpilot.io.report_writer import RecommendationWriter
 from skillpilot.llm import create_llm
@@ -32,38 +32,61 @@ class SkillPilotPipeline:
         self.evaluator = CandidateEvaluator(llm if config.llm.enable_evaluation else None)
         self.decision_gate = DecisionGate()
         self.writer = RecommendationWriter(config.outputs_dir)
-        self.skill_builder = SkillBuilder(config.generated_skills_dir)
+        self.skill_builder = SkillBuilderAgent(
+            config.generated_skills_dir,
+            llm,
+            config.builder.max_clarification_rounds,
+        )
 
-    def run(self, requirement_text: str, force_build_skill: bool = False) -> AgentRunResult:
+    def run(
+        self,
+        requirement_text: str,
+        force_build_skill: bool = False,
+        *,
+        interactive_builder: bool = False,
+        answer_provider: AnswerProvider | None = None,
+    ) -> AgentRunResult:
         requirement = self.parser.parse(requirement_text)
         classification = self.classifier.classify(requirement)
         search_plan = self.planner.plan(requirement, classification)
-        search_results = self.search_executor.run(search_plan)
-        retrieved_contents = self.content_reader.read(search_results)
-        evaluations = self.evaluator.evaluate_retrieved(
-            requirement,
-            classification,
-            retrieved_contents,
-        )
-        if not evaluations and self._should_use_offline_cache(search_results):
-            evaluations = self.evaluator.evaluate(
+        if force_build_skill:
+            search_results = []
+            retrieved_contents = []
+            evaluations = []
+            decision = self.decision_gate.build_custom(
+                "用户显式请求构造 Skill，直接进入 SkillBuilder Agent。"
+            )
+        else:
+            search_results = self.search_executor.run(search_plan)
+            retrieved_contents = self.content_reader.read(search_results)
+            evaluations = self.evaluator.evaluate_retrieved(
                 requirement,
                 classification,
-                self.cache.load(),
+                retrieved_contents,
             )
-        decision = self.decision_gate.decide(evaluations)
-
-        if force_build_skill:
-            decision.decision_type = "build_custom_skill"
-            decision.custom_skill_name = "homework-knowledge-hint"
-            decision.reason = "用户显式请求构造 Skill，骨架直接进入 SkillBuilder。"
+            if not evaluations and self._should_use_offline_cache(search_results):
+                evaluations = self.evaluator.evaluate(
+                    requirement,
+                    classification,
+                    self.cache.load(),
+                )
+            decision = self.decision_gate.decide(evaluations)
 
         skill_draft = None
         if decision.decision_type in {
             "build_custom_skill",
             "recommend_with_custom_extension",
         }:
-            skill_draft = self.skill_builder.build_homework_hint_skill()
+            skill_draft = self.skill_builder.build(
+                requirement,
+                classification,
+                decision,
+                evaluations,
+                interactive=interactive_builder and self.config.builder.interactive,
+                answer_provider=answer_provider,
+            )
+            if skill_draft.builder_session and skill_draft.builder_session.spec:
+                decision.custom_skill_name = skill_draft.builder_session.spec.slug
 
         report_path = self.config.outputs_dir / "recommendation_report.md"
         trace_path = self.config.outputs_dir / "decision_trace.json"
@@ -75,6 +98,7 @@ class SkillPilotPipeline:
             search_plan=search_plan,
             search_results=search_results,
             retrieved_contents=retrieved_contents,
+            skill_draft=skill_draft,
             report_path=report_path,
         )
 
@@ -89,6 +113,7 @@ class SkillPilotPipeline:
             report_path=str(report_path),
             trace_path=str(trace_path),
             skill_draft=skill_draft,
+            builder_session=skill_draft.builder_session if skill_draft else None,
         )
         self.writer.write_trace(result, trace_path=Path(result.trace_path))
         return result

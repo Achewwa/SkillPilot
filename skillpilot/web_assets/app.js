@@ -28,6 +28,7 @@ let activeJobId = null;
 let renderedEventCount = 0;
 let candidateEvaluations = [];
 let envValues = {};
+let renderedBuilderQuestionKey = null;
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -111,6 +112,7 @@ newButton.addEventListener("click", async () => {
   requirementInput.disabled = false;
   resetRunState();
   jobStatus.textContent = "Idle";
+  clearButton.disabled = false;
   runButton.disabled = false;
   runButton.textContent = "Run";
 });
@@ -125,6 +127,7 @@ form.addEventListener("submit", async (event) => {
 
   resetRunState();
   requirementInput.disabled = true;
+  clearButton.disabled = true;
   runButton.disabled = true;
   runButton.textContent = "Running";
   jobStatus.textContent = "Starting";
@@ -148,6 +151,7 @@ form.addEventListener("submit", async (event) => {
     jobStatus.textContent = "Failed";
   } finally {
     requirementInput.disabled = false;
+    clearButton.disabled = false;
     runButton.disabled = false;
     runButton.textContent = "Run";
   }
@@ -163,6 +167,7 @@ function resetRunState() {
   reportContent.innerHTML = "";
   builderOptions.hidden = true;
   builderOptions.innerHTML = "";
+  renderedBuilderQuestionKey = null;
   rightPane.classList.remove("report-expanded");
   appShell.classList.remove("has-results");
   rightPane.setAttribute("aria-hidden", "true");
@@ -435,8 +440,14 @@ function renderBuilderQuestion(job) {
   if (!question || job.status !== "waiting_for_builder_answer") {
     builderOptions.hidden = true;
     builderOptions.innerHTML = "";
+    renderedBuilderQuestionKey = null;
     return;
   }
+  const questionKey = `${question.question_id}:${question.prompt}`;
+  if (!builderOptions.hidden && renderedBuilderQuestionKey === questionKey) {
+    return;
+  }
+  renderedBuilderQuestionKey = questionKey;
   builderOptions.hidden = false;
   builderOptions.innerHTML = `
     <div class="builder-question">

@@ -1,5 +1,0 @@
-# 为 5/6/7/8/9 张输入分别预定义 3:4 画布上的拼贴布局模板（中心点、相对尺寸、旋转范围、层叠顺序）。
-
-JSON 结构：{"layout_5_a": {"canvas": [1242,1656], "slots": [{"cx": 420, "cy": 500, "w": 560, "h": 700, "rot_range": [-6,6], "z": 1}, ...]}, ...}，每个数量提供 1-2 套模板。
-
-Related Skill: Xiaohongshu Collage Composer

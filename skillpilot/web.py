@@ -30,7 +30,7 @@ ENV_KEYS = [
     "SKILLPILOT_OUTPUTS_DIR",
     "SKILLPILOT_GENERATED_SKILLS_DIR",
 ]
-SENSITIVE_ENV_KEYS = ["ANTHROPIC_API_KEY", "GITHUB_TOKEN"]
+SENSITIVE_ENV_KEYS = ["GITHUB_TOKEN"]
 
 
 def _now() -> str:
@@ -246,16 +246,8 @@ class SkillPilotWebApp:
         return self.env_snapshot()
 
     def _sensitive_env_items(self) -> list[dict[str, Any]]:
-        anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
         github_key = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN") or ""
         return [
-            {
-                "name": "ANTHROPIC_API_KEY",
-                "value": "•" * len(anthropic_key) if anthropic_key else "",
-                "sensitive": True,
-                "configured": bool(anthropic_key),
-                "masked": bool(anthropic_key),
-            },
             {
                 "name": "GITHUB_TOKEN",
                 "value": "•" * len(github_key) if github_key else "",

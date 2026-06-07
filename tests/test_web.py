@@ -97,8 +97,7 @@ def test_web_app_environment_snapshot_masks_sensitive_values(tmp_path: Path, mon
     assert github_token["value"] == "•" * len("secret-token")
     assert github_token["sensitive"] is True
     assert github_token["masked"] is True
-    anthropic_key = next(item for item in snapshot["variables"] if item["name"] == "ANTHROPIC_API_KEY")
-    assert anthropic_key["value"] == "•" * len("claude-secret")
+    assert "ANTHROPIC_API_KEY" not in {item["name"] for item in snapshot["variables"]}
 
 
 def test_web_app_updates_allowed_environment_values(tmp_path: Path, monkeypatch) -> None:
@@ -117,7 +116,7 @@ def test_web_app_rejects_disallowed_environment_values(tmp_path: Path) -> None:
     web_app = SkillPilotWebApp(config_loader=lambda: web_config(tmp_path))
 
     try:
-        web_app.update_env({"NOT_ALLOWED_SECRET": "secret"})
+        web_app.update_env({"ANTHROPIC_API_KEY": "secret"})
     except ValueError as exc:
         assert "不允许" in str(exc)
     else:

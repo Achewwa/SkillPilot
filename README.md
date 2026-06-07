@@ -82,7 +82,7 @@ conda activate skill_pilot
 pip install -e .
 ```
 
-# 环境变量配置
+## 环境变量配置
 
 ```bash
 export SKILLPILOT_CLAUDE_MODEL=your_claude_model
